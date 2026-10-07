@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Account, Transaction, AccountBalanceSummary, MonthlyOverview, Category, CategorySpending, MonthlyTrend } from '@/types';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfYear, endOfYear } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfYear, endOfYear, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -326,6 +326,23 @@ export function filterTransactionsByPeriod(
   customEnd?: string
 ): Transaction[] {
   const now = new Date();
+
+  if (period === 'this-week') {
+    const start = startOfWeek(now, { weekStartsOn: 1 });
+    const end = endOfWeek(now, { weekStartsOn: 1 });
+    return transactions.filter((tx) =>
+      isWithinInterval(parseDateSafe(tx.date), { start, end })
+    );
+  }
+
+  if (period === 'last-week') {
+    const prev = subWeeks(now, 1);
+    const start = startOfWeek(prev, { weekStartsOn: 1 });
+    const end = endOfWeek(prev, { weekStartsOn: 1 });
+    return transactions.filter((tx) =>
+      isWithinInterval(parseDateSafe(tx.date), { start, end })
+    );
+  }
 
   if (period === 'this-month') {
     const start = startOfMonth(now);

@@ -35,6 +35,7 @@ interface AppContextType {
   monthlyTrends: MonthlyTrend[];
   isLoading: boolean;
   isSyncing: boolean;
+  syncStatus: 'pending' | 'syncing' | 'synced';
   error: string | null;
 
   // Transaction Modal State
@@ -88,6 +89,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<'pending' | 'syncing' | 'synced'>('synced');
   const [error, setError] = useState<string | null>(null);
 
   // Modals state
@@ -100,9 +102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  const loadAllData = useCallback(async (showSync = false) => {
-    if (showSync) setIsSyncing(true);
-    setError(null);
+  const readCachedData = useCallback(async () => {
     try {
       const [txs, accs, cats, sets] = await Promise.all([
         api.getTransactions(),
@@ -132,13 +132,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(err.message || 'Failed to fetch financial data');
     } finally {
       setIsLoading(false);
-      setIsSyncing(false);
     }
   }, []);
+
+  const loadAllData = useCallback(async (showSync = false) => {
+    if (showSync) setIsSyncing(true);
+    setError(null);
+    await readCachedData();
+    if (api.getCurrentAppUser()) {
+      void api.syncCurrentUserData().then((synced) => {
+        if (synced) void readCachedData();
+      });
+    }
+    setIsSyncing(false);
+  }, [readCachedData]);
+
+  const refreshData = useCallback(async () => {
+    await readCachedData();
+    if (api.getCurrentAppUser()) {
+      void api.syncCurrentUserData().then((synced) => {
+        if (synced) void readCachedData();
+      });
+    }
+  }, [readCachedData]);
 
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    const handleSyncComplete = () => { void readCachedData(); };
+    window.addEventListener('expense-tracker-data-synced', handleSyncComplete);
+    return () => window.removeEventListener('expense-tracker-data-synced', handleSyncComplete);
+  }, [readCachedData]);
+
+  useEffect(() => {
+    const handleSyncStatus = (event: Event) => {
+      setSyncStatus((event as CustomEvent<'pending' | 'syncing' | 'synced'>).detail);
+    };
+    window.addEventListener('expense-tracker-sync-status', handleSyncStatus);
+    return () => window.removeEventListener('expense-tracker-sync-status', handleSyncStatus);
+  }, []);
 
   // Derived calculations
   const accountSummaries = useMemo(() => {
@@ -215,108 +249,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // CRUD Actions
   const createTransaction = useCallback(async (data: Omit<Transaction, 'id' | 'createdAt'>) => {
-    setIsSyncing(true);
-    try {
-      const created = await api.createTransaction(data);
-      setTransactions((prev) => [created, ...prev]);
-      return created;
-    } finally {
-      setIsSyncing(false);
-    }
+    const created = await api.createTransaction(data);
+    setTransactions((prev) => [created, ...prev]);
+    return created;
   }, []);
 
   const updateTransaction = useCallback(async (id: string, data: Partial<Transaction>) => {
-    setIsSyncing(true);
-    try {
-      const updated = await api.updateTransaction(id, data);
-      setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      return updated;
-    } finally {
-      setIsSyncing(false);
-    }
+    const updated = await api.updateTransaction(id, data);
+    setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    return updated;
   }, []);
 
   const deleteTransaction = useCallback(async (id: string) => {
-    setIsSyncing(true);
-    try {
-      const success = await api.deleteTransaction(id);
-      if (success) {
-        setTransactions((prev) => prev.filter((t) => t.id !== id));
-      }
-      return success;
-    } finally {
-      setIsSyncing(false);
+    const success = await api.deleteTransaction(id);
+    if (success) {
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
     }
+    return success;
   }, []);
 
   const createAccount = useCallback(async (data: Omit<Account, 'id'>) => {
-    setIsSyncing(true);
-    try {
-      const created = await api.createAccount(data);
-      setAccounts((prev) => [...prev, created]);
-      return created;
-    } finally {
-      setIsSyncing(false);
-    }
+    const created = await api.createAccount(data);
+    setAccounts((prev) => [...prev, created]);
+    return created;
   }, []);
 
   const updateAccount = useCallback(async (id: string, data: Partial<Account>) => {
-    setIsSyncing(true);
-    try {
-      const updated = await api.updateAccount(id, data);
-      setAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
-      return updated;
-    } finally {
-      setIsSyncing(false);
-    }
+    const updated = await api.updateAccount(id, data);
+    setAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    return updated;
   }, []);
 
   const deleteAccount = useCallback(async (id: string) => {
-    setIsSyncing(true);
-    try {
-      const success = await api.deleteAccount(id);
-      if (success) {
-        setAccounts((prev) => prev.filter((a) => a.id !== id));
-      }
-      return success;
-    } finally {
-      setIsSyncing(false);
+    const success = await api.deleteAccount(id);
+    if (success) {
+      setAccounts((prev) => prev.filter((a) => a.id !== id));
     }
+    return success;
   }, []);
 
   const createCategory = useCallback(async (data: Omit<Category, 'id'>) => {
-    setIsSyncing(true);
-    try {
-      const created = await api.createCategory(data);
-      setCategories((prev) => [...prev, created]);
-      return created;
-    } finally {
-      setIsSyncing(false);
-    }
+    const created = await api.createCategory(data);
+    setCategories((prev) => [...prev, created]);
+    return created;
   }, []);
 
   const updateCategory = useCallback(async (id: string, data: Partial<Category>) => {
-    setIsSyncing(true);
-    try {
-      const updated = await api.updateCategory(id, data);
-      setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
-      return updated;
-    } finally {
-      setIsSyncing(false);
-    }
+    const updated = await api.updateCategory(id, data);
+    setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    return updated;
   }, []);
 
   const deleteCategory = useCallback(async (id: string) => {
-    setIsSyncing(true);
-    try {
-      const success = await api.deleteCategory(id);
-      if (success) {
-        setCategories((prev) => prev.filter((c) => c.id !== id));
-      }
-      return success;
-    } finally {
-      setIsSyncing(false);
+    const success = await api.deleteCategory(id);
+    if (success) {
+      setCategories((prev) => prev.filter((c) => c.id !== id));
     }
+    return success;
   }, []);
 
   const updateSettings = useCallback(async (data: Partial<AppSettings>) => {
@@ -375,6 +364,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         monthlyTrends,
         isLoading,
         isSyncing,
+        syncStatus,
         error,
 
         isTransactionModalOpen,
@@ -395,7 +385,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         openEditCategory,
         closeCategoryModal,
 
-        refreshData: () => loadAllData(true),
+        refreshData,
         createTransaction,
         updateTransaction,
         deleteTransaction,

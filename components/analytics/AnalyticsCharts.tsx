@@ -222,6 +222,13 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <Button
+            variant={period === 'this-week' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setPeriod('this-week')}
+          >
+            This Week
+          </Button>
+          <Button
             variant={period === 'this-month' ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => setPeriod('this-month')}

@@ -1,6 +1,6 @@
-# FinTrack — Personal Finance & Expense Tracker
+# Expense Tracker
 
-A modern personal finance and money management application built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, and **Google Sheets / Apps Script** backend.
+A personal finance and expense tracking application built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, and **Google Sheets / Apps Script** backend.
 
 Designed with clean typography, restrained accents, zero emojis (pure Lucide React iconography), dynamic balance calculations, and a mobile-first responsive architecture ready for future **Expo / React Native** Android builds.
 
@@ -63,18 +63,17 @@ Designed with clean typography, restrained accents, zero emojis (pure Lucide Rea
 npm install
 ```
 
-### 2. Configure Environment Variables (Optional)
-Copy `.env.example` to `.env.local`:
-```bash
-cp .env.example .env.local
-```
+### 2. Configure the shared Google Apps Script endpoint
 
-Set your Google Apps Script Web App URL in `.env.local` (or configure it in the app's Settings page):
+Copy `.env.example` to `.env.local` and set the Web App URL before building the public app. The endpoint is public, not a secret; user sessions scope each user to their own data tabs.
+
 ```env
 NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 ```
 
-> **Note**: If `NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL` is omitted, the app will run in offline demo mode using browser localStorage and sample data.
+On the owner spreadsheet, use **Expense Tracker > Set Up / Reset Owner Login** once. Enter the password for the owner login `owner.pujan@`; the `Users` tab stores only a salted hash. Other people can create accounts from the app's sign-in screen. The `Users` tab stores password hashes and account metadata; a `Sessions` tab stores hashed session tokens. Each non-owner receives their own Transactions, Accounts, Categories, and Settings tabs. Your original tabs remain assigned to you and continue to receive Gmail imports.
+
+The app opens from its local cache and syncs changes to Sheets in the background. Users sign in again after reinstalling to restore their records. Local cache is per browser profile, and simultaneous edits from multiple devices can overwrite one another because Sheets is being used as a small-group data store rather than a conflict-resolving database. Separate tabs prevent accidental mixing in the app; the Google workbook owner can still open every tab.
 
 ### 3. Run Development Server
 ```bash

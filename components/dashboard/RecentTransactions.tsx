@@ -44,7 +44,7 @@ export function RecentTransactions({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
         <div>
           <CardTitle>Recent Transactions</CardTitle>
           <p className="text-xs text-slate-500 mt-0.5">Latest activity across all accounts</p>
@@ -62,7 +62,7 @@ export function RecentTransactions({
           <EmptyState
             icon={ArrowLeftRight}
             title="No transactions yet"
-            description="Add your first transaction or sync your bank emails to start tracking."
+            description="Add your first transaction to start tracking."
             actionLabel="Add transaction"
             onAction={openAddTransaction}
           />
@@ -83,12 +83,12 @@ export function RecentTransactions({
                 <div
                   key={tx.id}
                   onClick={() => openEditTransaction(tx)}
-                  className="flex items-center justify-between py-3 px-2 -mx-2 rounded-lg hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                  className="flex items-center justify-between py-2.5 sm:py-3 px-1.5 -mx-1.5 rounded-xl hover:bg-slate-50/80 active:bg-slate-100 transition-colors cursor-pointer group"
                 >
                   {/* Left: Icon & Details */}
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                     <div
-                      className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${
+                      className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${
                         isIncome
                           ? 'bg-emerald-50 border-emerald-200/80 text-emerald-700'
                           : isExpense
@@ -104,10 +104,10 @@ export function RecentTransactions({
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-slate-800">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate group-hover:text-slate-800">
                         {tx.description || (isTransfer ? 'Transfer' : category?.name || 'Transaction')}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 truncate mt-0.5">
+                      <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
                         {isTransfer ? (
                           <div className="flex items-center gap-1 shrink-0">
                             <AccountBadge account={account} name={account?.name || 'Bank'} />
@@ -115,10 +115,10 @@ export function RecentTransactions({
                             <AccountBadge account={targetAccount} name={targetAccount?.name || 'Wallet'} />
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
                             <AccountBadge account={account} name={account?.name || 'Bank'} />
                             {category && (
-                              <span className="text-slate-500 font-medium">· {category.name}</span>
+                              <span className="text-slate-500 font-medium hidden sm:inline">· {category.name}</span>
                             )}
                           </div>
                         )}
@@ -129,9 +129,9 @@ export function RecentTransactions({
                   </div>
 
                   {/* Right: Amount with + / - indicator and icon */}
-                  <div className="text-right shrink-0 pl-3">
+                  <div className="text-right shrink-0 pl-2 sm:pl-3">
                     <div
-                      className={`flex items-center justify-end gap-1 font-bold text-sm sm:text-base ${
+                      className={`flex items-center justify-end gap-0.5 sm:gap-1 font-bold text-xs sm:text-sm whitespace-nowrap ${
                         isIncome
                           ? 'text-emerald-600'
                           : isExpense

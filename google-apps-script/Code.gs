@@ -5,14 +5,17 @@
  * 1. Open your Google Sheet
  * 2. Extensions > Apps Script
  * 3. Replace all code with this file
- * 4. Run `reprocessAllEmails` to clear duplicates and scan existing Gmail alert emails fresh
- * 5. Run `setupAutoTrigger` to enable automatic 15-minute background email syncing
- * 6. Deploy > Manage Deployments > Edit > New Version > Deploy (Access: Anyone)
+ * 4. Use the spreadsheet menu to set up the owner login
+ * 5. Deploy > Manage Deployments > Edit > New Version > Deploy (Access: Anyone)
+ * 6. Set NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL in the Next.js deployment
  */
 
 var USER_ESEWA_ID = '9860928584';
+var OWNER_LOGIN_IDENTIFIER = 'owner.pujan@';
 
 var SHEET_NAMES = {
+  USERS: 'Users',
+  SESSIONS: 'Sessions',
   TRANSACTIONS: 'Transactions',
   ACCOUNTS: 'Accounts',
   CATEGORIES: 'Categories',
@@ -21,6 +24,8 @@ var SHEET_NAMES = {
 };
 
 var HEADERS = {
+  USERS: ['id', 'name', 'email', 'passwordSalt', 'passwordHash', 'role', 'active', 'createdAt'],
+  SESSIONS: ['id', 'userId', 'tokenHash', 'active', 'createdAt'],
   TRANSACTIONS: ['id', 'date', 'type', 'accountId', 'categoryId', 'amount', 'description', 'transferToAccountId', 'createdAt'],
   ACCOUNTS: ['id', 'name', 'type', 'openingBalance', 'currency', 'active'],
   CATEGORIES: ['id', 'name', 'type', 'icon', 'active'],
@@ -43,6 +48,9 @@ function onOpen(e) {
       .addSeparator()
       .addItem('Reprocess All Emails (Fresh Import - No Duplicates)', 'menuReprocessAllEmails')
       .addItem('Clean Accounts to Nabil & eSewa (0 Balance)', 'menuCleanAccounts')
+      .addSeparator()
+      .addItem('Set Up / Reset Owner Login', 'menuSetupOwnerLogin')
+      .addItem('Reset User Password', 'menuResetUserPassword')
       .addToUi();
   } catch (err) {
     // headless context
@@ -79,6 +87,40 @@ function menuCleanAccounts() {
   SpreadsheetApp.getActiveSpreadsheet().toast('Accounts reset to Nabil Bank & eSewa with 0 balance.', 'Accounts Cleaned', 5);
 }
 
+function menuSetupOwnerLogin() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt('Set up owner login', 'Enter the owner password for ' + OWNER_LOGIN_IDENTIFIER + '. It will be stored as a salted hash.', ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  var password = response.getResponseText();
+  if (password.length < 8) return ui.alert('Use a password with at least 8 characters.');
+  upsertAppUser(OWNER_LOGIN_IDENTIFIER, 'Owner', password, 'owner');
+  revokeAppUserSessions('owner');
+  ui.alert('Owner login ready', 'The owner account is ready. The password is stored as a salted hash in the Users tab.');
+}
+
+function menuResetUserPassword() {
+  var ui = SpreadsheetApp.getUi();
+  var userPrompt = ui.prompt('Reset user password', "Enter the user's username:", ui.ButtonSet.OK_CANCEL);
+  if (userPrompt.getSelectedButton() !== ui.Button.OK) return;
+  var identifier = normalizeLoginIdentifier(userPrompt.getResponseText());
+  var user = getRowsAsObjects(SHEET_NAMES.USERS).find(function(row) {
+    return normalizeLoginIdentifier(row.email) === identifier;
+  });
+  if (!user) return ui.alert('No account was found for that username.');
+
+  var passwordPrompt = ui.prompt('Reset user password', 'Enter the new password (at least 8 characters):', ui.ButtonSet.OK_CANCEL);
+  if (passwordPrompt.getSelectedButton() !== ui.Button.OK) return;
+  var password = passwordPrompt.getResponseText();
+  if (password.length < 8) return ui.alert('Use a password with at least 8 characters.');
+  var salt = Utilities.getUuid() + Utilities.getUuid();
+  updateRow(SHEET_NAMES.USERS, HEADERS.USERS, user.id, {
+    passwordSalt: salt,
+    passwordHash: hashPassword(password, salt)
+  });
+  revokeAppUserSessions(user.id);
+  ui.alert('Password reset', 'The user can now sign in with the new password.');
+}
+
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'ping';
@@ -87,6 +129,10 @@ function doGet(e) {
       return jsonResponse({ success: true, message: 'Expense Tracker API is live.' });
     }
 
+    // Data reads now require a session token in an authenticated POST body.
+    return jsonResponse({ success: false, error: 'This action requires an authenticated POST request.' });
+
+    /* Legacy public GET actions are disabled.
     if (action === 'initSheet') {
       initSheet();
       return jsonResponse({ success: true, message: 'All sheets initialized successfully.' });
@@ -151,7 +197,7 @@ function doGet(e) {
       return jsonResponse({ success: true, data: settingsObj });
     }
 
-    return jsonResponse({ success: false, error: 'Unknown GET action: ' + action });
+    return jsonResponse({ success: false, error: 'Unknown GET action: ' + action }); */
   } catch (err) {
     return jsonResponse({ success: false, error: err.toString() });
   }
@@ -166,6 +212,59 @@ function doPost(e) {
 
     var action = payload.action || '';
 
+    if (action === 'registerUser') {
+      var registrationLock = LockService.getScriptLock();
+      registrationLock.waitLock(10000);
+      try {
+        var registration = registerAppUser(payload.email, payload.name, payload.password);
+        if (!registration.success) return jsonResponse({ success: false, error: registration.error });
+        writeAppUserData(registration.user.id, payload.initialData || {});
+        return jsonResponse({ success: true, data: { user: publicUser(registration.user), sessionToken: registration.sessionToken, userData: readAppUserData(registration.user.id) } });
+      } finally {
+        registrationLock.releaseLock();
+      }
+    }
+
+    if (action === 'login') {
+      var login = loginAppUser(payload.email, payload.password);
+      if (!login.success) return jsonResponse({ success: false, error: login.error });
+      var userData = readAppUserData(login.user.id);
+      if (!hasAppUserData(userData)) {
+        writeAppUserData(login.user.id, payload.initialData || {});
+        userData = readAppUserData(login.user.id);
+      }
+      return jsonResponse({ success: true, data: { user: publicUser(login.user), sessionToken: login.sessionToken, userData: userData } });
+    }
+
+    if (action === 'syncUserData') {
+      var syncUser = authenticateAppSession(payload.sessionToken);
+      if (!syncUser) return jsonResponse({ success: false, error: 'Your session is no longer valid. Sign in again.' });
+      var lock = LockService.getScriptLock();
+      lock.waitLock(10000);
+      try {
+        if (payload.direction === 'push') writeAppUserData(syncUser.id, payload.userData || {});
+        return jsonResponse({ success: true, data: { user: publicUser(syncUser), userData: readAppUserData(syncUser.id) } });
+      } finally {
+        lock.releaseLock();
+      }
+    }
+
+    if (action === 'logout') {
+      var loggedOutUser = authenticateAppSession(payload.sessionToken);
+      if (loggedOutUser) revokeAppSession(payload.sessionToken);
+      return jsonResponse({ success: true });
+    }
+
+    if (action === 'syncBankEmails') {
+      var owner = authenticateAppSession(payload.sessionToken);
+      if (!owner || owner.role !== 'owner') return jsonResponse({ success: false, error: 'Owner access is required.' });
+      return jsonResponse({ success: true, data: syncBankEmailsFromGmail(false) });
+    }
+
+    // Do not expose legacy unauthenticated CRUD, maintenance, or Gmail actions.
+    return jsonResponse({ success: false, error: 'Unknown or disabled API action.' });
+
+    /* Legacy public POST actions are disabled.
     if (action === 'initSheet') {
       initSheet();
       return jsonResponse({ success: true, message: 'Sheets initialized successfully.' });
@@ -287,7 +386,7 @@ function doPost(e) {
       return jsonResponse({ success: true, data: newSettings });
     }
 
-    return jsonResponse({ success: false, error: 'Unknown POST action: ' + action });
+    return jsonResponse({ success: false, error: 'Unknown POST action: ' + action }); */
   } catch (err) {
     return jsonResponse({ success: false, error: err.toString() });
   }
@@ -296,6 +395,177 @@ function doPost(e) {
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function upsertAppUser(email, name, password, role) {
+  var sheet = getOrCreateSheet(SHEET_NAMES.USERS, HEADERS.USERS);
+  var users = getRowsAsObjects(SHEET_NAMES.USERS);
+  var normalizedEmail = normalizeLoginIdentifier(email);
+  var existing = users.find(function(user) { return normalizeLoginIdentifier(user.email) === normalizedEmail; });
+  var id = existing ? existing.id : (role === 'owner' ? 'owner' : Utilities.getUuid());
+  var salt = Utilities.getUuid() + Utilities.getUuid();
+  var record = {
+    id: id,
+    name: name,
+    email: normalizedEmail,
+    passwordSalt: salt,
+    passwordHash: hashPassword(password, salt),
+    role: role,
+    active: true,
+    createdAt: existing ? existing.createdAt : new Date().toISOString()
+  };
+  if (existing) updateRow(SHEET_NAMES.USERS, HEADERS.USERS, id, record);
+  else insertRow(SHEET_NAMES.USERS, HEADERS.USERS, record);
+  if (role !== 'owner') ensureAppUserSheets(id);
+  return record;
+}
+
+function registerAppUser(email, name, password) {
+  var normalizedEmail = normalizeLoginIdentifier(email);
+  if (!normalizedEmail || !password || password.length < 8) {
+    return { success: false, error: 'Enter a username and a password with at least 8 characters.' };
+  }
+  if (normalizedEmail === normalizeLoginIdentifier(OWNER_LOGIN_IDENTIFIER)) {
+    return { success: false, error: 'That username is reserved.' };
+  }
+  var users = getRowsAsObjects(SHEET_NAMES.USERS);
+  if (users.some(function(user) { return normalizeLoginIdentifier(user.email) === normalizedEmail; })) {
+    return { success: false, error: 'An account with that username already exists.' };
+  }
+  var record = upsertAppUser(normalizedEmail, name || normalizedEmail, password, 'user');
+  var token = createSessionToken(record.id);
+  return { success: true, user: record, sessionToken: token };
+}
+
+function loginAppUser(email, password) {
+  var normalizedEmail = normalizeLoginIdentifier(email);
+  var user = getRowsAsObjects(SHEET_NAMES.USERS).find(function(record) {
+    return normalizeLoginIdentifier(record.email) === normalizedEmail && record.active === true;
+  });
+  if (!user || hashPassword(password || '', user.passwordSalt) !== String(user.passwordHash)) {
+    return { success: false, error: 'Incorrect username or password.' };
+  }
+  var token = createSessionToken(user.id);
+  return { success: true, user: user, sessionToken: token };
+}
+
+function normalizeLoginIdentifier(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function createSessionToken(userId) {
+  var token = Utilities.getUuid() + Utilities.getUuid();
+  insertRow(SHEET_NAMES.SESSIONS, HEADERS.SESSIONS, {
+    id: Utilities.getUuid(),
+    userId: userId,
+    tokenHash: hashSessionToken(token),
+    active: true,
+    createdAt: new Date().toISOString()
+  });
+  return token;
+}
+
+function hashSessionToken(token) {
+  return hashText(String(token || ''));
+}
+
+function hashPassword(password, salt) {
+  var value = String(salt) + ':' + String(password || '');
+  for (var i = 0; i < 5000; i++) value = hashText(value);
+  return value;
+}
+
+function hashText(value) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value), Utilities.Charset.UTF_8);
+  return bytes.map(function(byte) {
+    var hex = (byte < 0 ? byte + 256 : byte).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
+function authenticateAppSession(token) {
+  if (!token) return null;
+  var tokenHash = hashSessionToken(token);
+  var session = getRowsAsObjects(SHEET_NAMES.SESSIONS).find(function(row) {
+    return String(row.tokenHash) === tokenHash && row.active === true;
+  });
+  if (!session) return null;
+  return getRowsAsObjects(SHEET_NAMES.USERS).find(function(user) {
+    return String(user.id) === String(session.userId) && user.active === true;
+  }) || null;
+}
+
+function revokeAppUserSessions(userId) {
+  var sessions = getRowsAsObjects(SHEET_NAMES.SESSIONS);
+  sessions.forEach(function(session) {
+    if (String(session.userId) === String(userId) && session.active === true) {
+      updateRow(SHEET_NAMES.SESSIONS, HEADERS.SESSIONS, session.id, { active: false });
+    }
+  });
+}
+
+function revokeAppSession(token) {
+  var tokenHash = hashSessionToken(token);
+  var session = getRowsAsObjects(SHEET_NAMES.SESSIONS).find(function(row) {
+    return String(row.tokenHash) === tokenHash;
+  });
+  if (session) updateRow(SHEET_NAMES.SESSIONS, HEADERS.SESSIONS, session.id, { active: false });
+}
+
+function publicUser(user) {
+  return { id: user.id, name: user.name, email: user.email, role: user.role };
+}
+
+function appUserSheetName(userId, suffix) {
+  if (String(userId) === 'owner') return SHEET_NAMES[suffix.toUpperCase()];
+  return ('User_' + String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) + '_' + suffix).slice(0, 99);
+}
+
+function ensureAppUserSheets(userId) {
+  ['Transactions', 'Accounts', 'Categories', 'Settings'].forEach(function(key) {
+    var name = appUserSheetName(userId, key);
+    getOrCreateSheet(name, HEADERS[key.toUpperCase()]);
+  });
+}
+
+function readAppUserData(userId) {
+  ensureAppUserSheets(userId);
+  var settingsRows = getRowsAsObjects(appUserSheetName(userId, 'Settings'));
+  var settings = {};
+  settingsRows.forEach(function(row) { settings[row.key] = row.value; });
+  return {
+    transactions: getRowsAsObjects(appUserSheetName(userId, 'Transactions')),
+    accounts: getRowsAsObjects(appUserSheetName(userId, 'Accounts')),
+    categories: getRowsAsObjects(appUserSheetName(userId, 'Categories')),
+    settings: settings
+  };
+}
+
+function hasAppUserData(data) {
+  return data.transactions.length > 0 || data.accounts.length > 0 || data.categories.length > 0 || Object.keys(data.settings).length > 0;
+}
+
+function writeAppUserData(userId, data) {
+  ensureAppUserSheets(userId);
+  replaceAppUserRows(appUserSheetName(userId, 'Transactions'), HEADERS.TRANSACTIONS, data.transactions || []);
+  replaceAppUserRows(appUserSheetName(userId, 'Accounts'), HEADERS.ACCOUNTS, data.accounts || []);
+  replaceAppUserRows(appUserSheetName(userId, 'Categories'), HEADERS.CATEGORIES, data.categories || []);
+  var settings = data.settings || {};
+  var settingsRows = Object.keys(settings).filter(function(key) { return key !== 'googleSheetsUrl'; }).map(function(key) {
+    return { key: key, value: settings[key] };
+  });
+  replaceAppUserRows(appUserSheetName(userId, 'Settings'), HEADERS.SETTINGS, settingsRows);
+}
+
+function replaceAppUserRows(sheetName, headers, records) {
+  var sheet = getOrCreateSheet(sheetName, headers);
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (!records.length) return;
+  var rows = records.map(function(record) {
+    return headers.map(function(header) { return record[header] !== undefined ? record[header] : ''; });
+  });
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
 }
 
 /**

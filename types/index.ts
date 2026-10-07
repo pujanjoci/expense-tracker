@@ -77,7 +77,7 @@ export interface MonthlyTrend {
   net: number;
 }
 
-export type AnalyticsPeriod = 'this-month' | 'last-month' | 'last-3-months' | 'last-6-months' | 'this-year' | 'all' | 'custom';
+export type AnalyticsPeriod = 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'last-3-months' | 'last-6-months' | 'this-year' | 'all' | 'custom';
 
 export interface ApiResponse<T = any> {
   success: boolean;

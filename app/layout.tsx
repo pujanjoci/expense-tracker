@@ -7,9 +7,11 @@ import { AppShell } from '@/components/layout/AppShell';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Expense Tracker — Personal Finance & Money Management',
-  description:
-    'A clean, modern personal finance and expense tracking application. Track bank transactions, manage budgets, and analyze spending across all your accounts.',
+  title: 'Expense Tracker',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 

@@ -1,13 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { WalletCards, Settings, RefreshCw, SlidersHorizontal, MailCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
+import { AppUser, getCurrentAppUser } from '@/lib/api';
 
 export function Header() {
-  const { isSyncing, refreshData, syncBankEmails, settings } = useApp();
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  useEffect(() => { setCurrentUser(getCurrentAppUser()); }, []);
+  const { isSyncing, syncStatus, refreshData, syncBankEmails, settings } = useApp();
 
   return (
     <header className="lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 py-3 flex items-center justify-between">
@@ -21,7 +24,7 @@ export function Header() {
       </Link>
 
       <div className="flex items-center gap-1.5">
-        {settings.googleSheetsUrl && (
+        {settings.googleSheetsUrl && currentUser?.role === 'owner' && (
           <button
             onClick={() => syncBankEmails()}
             disabled={isSyncing}
@@ -37,9 +40,14 @@ export function Header() {
           onClick={() => refreshData()}
           disabled={isSyncing}
           aria-label="Refresh & Sync Data"
-          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          title={syncStatus === 'syncing' ? 'Syncing changes' : syncStatus === 'pending' ? 'Changes waiting to sync' : 'Changes synced'}
+          className="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
         >
-          <RefreshCw className={cn('w-4 h-4', isSyncing && 'animate-spin text-slate-900')} />
+          <RefreshCw className={cn('w-4 h-4', (isSyncing || syncStatus === 'syncing') && 'animate-spin text-slate-900')} />
+          <span className={cn(
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full',
+            syncStatus === 'pending' ? 'bg-amber-500' : syncStatus === 'syncing' ? 'bg-indigo-500' : 'bg-emerald-500'
+          )} />
         </button>
 
         <Link

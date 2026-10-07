@@ -7,9 +7,92 @@ const LOCAL_STORAGE_KEYS = {
   CATEGORIES: 'expense_tracker_categories',
   SETTINGS: 'expense_tracker_settings',
   SHEETS_URL: 'expense_tracker_sheets_url',
+  APP_USER: 'expense_tracker_app_user',
+  DIRTY: 'expense_tracker_sync_dirty',
 };
 
-// Helper to get configured Google Apps Script URL from env or localStorage
+let isApplyingRemoteData = false;
+let backgroundSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function publishSyncStatus(status: 'pending' | 'syncing' | 'synced') {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('expense-tracker-sync-status', { detail: status }));
+  }
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'user' | 'guest';
+}
+
+export const LOCAL_GUEST_USER: AppUser = {
+  id: 'local_guest',
+  name: 'Local User',
+  email: 'local@device',
+  role: 'guest',
+};
+
+interface StoredAppUser {
+  user: AppUser;
+  sessionToken: string;
+}
+
+function getStoredAppUser(): StoredAppUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.APP_USER);
+    return raw ? JSON.parse(raw) as StoredAppUser : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getCurrentAppUser(): AppUser | null {
+  return getStoredAppUser()?.user || null;
+}
+
+export function isGuestUser(): boolean {
+  const user = getCurrentAppUser();
+  return user?.role === 'guest' || user?.id === 'local_guest';
+}
+
+export function setLocalGuestUser(name?: string): AppUser {
+  let chosenName = name?.trim();
+  if (!chosenName && typeof window !== 'undefined') {
+    chosenName = localStorage.getItem('username') || undefined;
+  }
+  if (!chosenName) {
+    chosenName = LOCAL_GUEST_USER.name;
+  }
+
+  const guestUser: AppUser = {
+    ...LOCAL_GUEST_USER,
+    name: chosenName,
+    email: chosenName ? `${chosenName.toLowerCase().replace(/[^a-z0-9]/g, '')}@device` : 'local@device',
+  };
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('username', chosenName);
+    localStorage.setItem(LOCAL_STORAGE_KEYS.APP_USER, JSON.stringify({
+      user: guestUser,
+      sessionToken: '',
+    } satisfies StoredAppUser));
+  }
+  return guestUser;
+}
+
+function scopedStorageKey(key: string): string {
+  if (key === LOCAL_STORAGE_KEYS.SHEETS_URL || key === LOCAL_STORAGE_KEYS.APP_USER) return key;
+  const user = getCurrentAppUser();
+  if (user && user.role !== 'guest') {
+    return `${key}_${user.id}`;
+  }
+  return key;
+}
+
+// This is a shared public service endpoint. Every data action also requires an
+// authenticated per-user session token; the URL itself is not a secret.
 export function getGoogleAppsScriptUrl(): string {
   if (typeof window !== 'undefined') {
     const customUrl = localStorage.getItem(LOCAL_STORAGE_KEYS.SHEETS_URL);
@@ -32,7 +115,7 @@ export function setGoogleAppsScriptUrl(url: string) {
 function getLocalItem<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
   try {
-    const item = localStorage.getItem(key);
+    const item = localStorage.getItem(scopedStorageKey(key));
     return item ? JSON.parse(item) : fallback;
   } catch (e) {
     console.warn(`Error reading ${key} from localStorage:`, e);
@@ -43,7 +126,12 @@ function getLocalItem<T>(key: string, fallback: T): T {
 function setLocalItem<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(scopedStorageKey(key), JSON.stringify(value));
+    if (!isApplyingRemoteData && getCurrentAppUser() && !isGuestUser()) {
+      localStorage.setItem(scopedStorageKey(LOCAL_STORAGE_KEYS.DIRTY), 'true');
+      publishSyncStatus('pending');
+      scheduleBackgroundSync();
+    }
   } catch (e) {
     console.warn(`Error writing ${key} to localStorage:`, e);
   }
@@ -54,7 +142,7 @@ export function initLocalData() {
   if (typeof window === 'undefined') return;
 
   // Detect and purge old mock dummy transactions (e.g. tx-1, tx-2, Dinner with colleagues, etc.)
-  const cachedTx = localStorage.getItem(LOCAL_STORAGE_KEYS.TRANSACTIONS);
+  const cachedTx = localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.TRANSACTIONS));
   if (cachedTx) {
     try {
       const parsed: any[] = JSON.parse(cachedTx);
@@ -105,16 +193,16 @@ export function initLocalData() {
     }
   }
 
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.ACCOUNTS)) {
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.ACCOUNTS))) {
     setLocalItem(LOCAL_STORAGE_KEYS.ACCOUNTS, INITIAL_ACCOUNTS);
   }
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.CATEGORIES)) {
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.CATEGORIES))) {
     setLocalItem(LOCAL_STORAGE_KEYS.CATEGORIES, INITIAL_CATEGORIES);
   }
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.TRANSACTIONS)) {
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.TRANSACTIONS))) {
     setLocalItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, []);
   }
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS)) {
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.SETTINGS))) {
     setLocalItem(LOCAL_STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   }
 }
@@ -124,6 +212,10 @@ async function callGoogleScriptApi<T>(action: string, payload?: any): Promise<Ap
   const url = getGoogleAppsScriptUrl();
   if (!url) {
     throw new Error('Google Apps Script URL not configured');
+  }
+
+  if (!['registerUser', 'login', 'syncUserData', 'syncBankEmails', 'logout', 'ping'].includes(action)) {
+    return { success: false, error: 'This legacy API action is disabled.' };
   }
 
   try {
@@ -156,6 +248,211 @@ async function callGoogleScriptApi<T>(action: string, payload?: any): Promise<Ap
       error: err.message || 'Network request to Google Apps Script failed',
     };
   }
+}
+
+function createInitialUserData() {
+  return {
+    transactions: INITIAL_TRANSACTIONS,
+    accounts: INITIAL_ACCOUNTS,
+    categories: INITIAL_CATEGORIES,
+    settings: DEFAULT_SETTINGS,
+  };
+}
+
+function applyRemoteUserData(data: any) {
+  if (!data) return;
+  isApplyingRemoteData = true;
+  try {
+    setLocalItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, Array.isArray(data.transactions) ? data.transactions : []);
+    setLocalItem(LOCAL_STORAGE_KEYS.ACCOUNTS, Array.isArray(data.accounts) ? data.accounts : INITIAL_ACCOUNTS);
+    setLocalItem(LOCAL_STORAGE_KEYS.CATEGORIES, Array.isArray(data.categories) ? data.categories : INITIAL_CATEGORIES);
+    setLocalItem(LOCAL_STORAGE_KEYS.SETTINGS, { ...DEFAULT_SETTINGS, ...(data.settings || {}) });
+    const dirtyKey = scopedStorageKey(LOCAL_STORAGE_KEYS.DIRTY);
+    localStorage.removeItem(dirtyKey);
+  } finally {
+    isApplyingRemoteData = false;
+  }
+}
+
+async function storeAuthenticatedUser(result: ApiResponse<{ user: AppUser; sessionToken: string; userData: any }>) {
+  if (!result.success || !result.data) return { success: false, error: result.error || 'Could not sign in.' };
+
+  localStorage.setItem(LOCAL_STORAGE_KEYS.APP_USER, JSON.stringify({
+    user: result.data.user,
+    sessionToken: result.data.sessionToken,
+  } satisfies StoredAppUser));
+  applyRemoteUserData(result.data.userData);
+  return { success: true, user: result.data.user };
+}
+
+export async function authenticateUser(email: string, password: string): Promise<{ success: boolean; user?: AppUser; error?: string }> {
+  const result = await callGoogleScriptApi<{ user: AppUser; sessionToken: string; userData: any }>('login', {
+    email: email.trim(),
+    password,
+    initialData: createInitialUserData(),
+  });
+  return storeAuthenticatedUser(result);
+}
+
+export interface LocalOfflineDataSummary {
+  hasData: boolean;
+  transactionCount: number;
+  data: {
+    transactions: Transaction[];
+    accounts: Account[];
+    categories: Category[];
+    settings: AppSettings;
+  };
+}
+
+export function getLocalOfflineDataSummary(): LocalOfflineDataSummary {
+  if (typeof window === 'undefined') {
+    return {
+      hasData: false,
+      transactionCount: 0,
+      data: {
+        transactions: [],
+        accounts: INITIAL_ACCOUNTS,
+        categories: INITIAL_CATEGORIES,
+        settings: DEFAULT_SETTINGS,
+      },
+    };
+  }
+
+  try {
+    const rawTx = localStorage.getItem(LOCAL_STORAGE_KEYS.TRANSACTIONS);
+    const rawAcc = localStorage.getItem(LOCAL_STORAGE_KEYS.ACCOUNTS);
+    const rawCat = localStorage.getItem(LOCAL_STORAGE_KEYS.CATEGORIES);
+    const rawSet = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
+
+    const transactions: Transaction[] = rawTx ? JSON.parse(rawTx) : [];
+    const accounts: Account[] = rawAcc ? JSON.parse(rawAcc) : INITIAL_ACCOUNTS;
+    const categories: Category[] = rawCat ? JSON.parse(rawCat) : INITIAL_CATEGORIES;
+    const settings: AppSettings = rawSet ? JSON.parse(rawSet) : DEFAULT_SETTINGS;
+
+    const txList = Array.isArray(transactions) ? transactions : [];
+    const accList = Array.isArray(accounts) ? accounts : INITIAL_ACCOUNTS;
+    const catList = Array.isArray(categories) ? categories : INITIAL_CATEGORIES;
+
+    const hasData = txList.length > 0 || accList.length > INITIAL_ACCOUNTS.length || catList.length > INITIAL_CATEGORIES.length;
+
+    return {
+      hasData,
+      transactionCount: txList.length,
+      data: {
+        transactions: txList,
+        accounts: accList,
+        categories: catList,
+        settings: settings || DEFAULT_SETTINGS,
+      },
+    };
+  } catch {
+    return {
+      hasData: false,
+      transactionCount: 0,
+      data: {
+        transactions: [],
+        accounts: INITIAL_ACCOUNTS,
+        categories: INITIAL_CATEGORIES,
+        settings: DEFAULT_SETTINGS,
+      },
+    };
+  }
+}
+
+export function clearLocalOfflineData(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.TRANSACTIONS);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.ACCOUNTS);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.CATEGORIES);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.SETTINGS);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export async function registerUser(
+  email: string,
+  name: string,
+  password: string,
+  customInitialData?: {
+    transactions?: Transaction[];
+    accounts?: Account[];
+    categories?: Category[];
+    settings?: AppSettings;
+  }
+): Promise<{ success: boolean; user?: AppUser; error?: string }> {
+  const initialData = customInitialData || createInitialUserData();
+  const result = await callGoogleScriptApi<{ user: AppUser; sessionToken: string; userData: any }>('registerUser', {
+    email: email.trim(),
+    name: name.trim(),
+    password,
+    initialData,
+  });
+
+  const stored = await storeAuthenticatedUser(result);
+  if (stored.success && customInitialData) {
+    clearLocalOfflineData();
+  }
+  return stored;
+}
+
+export async function signOutUser() {
+  if (typeof window === 'undefined') return;
+  const currentUser = getStoredAppUser();
+  try {
+    if (currentUser) await callGoogleScriptApi('logout', { sessionToken: currentUser.sessionToken });
+  } catch {
+    // Local sign-out still works when the sync service is unavailable.
+  } finally {
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.APP_USER);
+    window.location.reload();
+  }
+}
+
+export async function syncCurrentUserData(direction?: 'pull' | 'push'): Promise<boolean> {
+  const currentUser = getStoredAppUser();
+  if (!currentUser || isGuestUser() || !currentUser.sessionToken || !getGoogleAppsScriptUrl()) {
+    publishSyncStatus('synced');
+    return false;
+  }
+  publishSyncStatus('syncing');
+  const dirtyKey = scopedStorageKey(LOCAL_STORAGE_KEYS.DIRTY);
+  const syncDirection = direction || (localStorage.getItem(dirtyKey) === 'true' ? 'push' : 'pull');
+  const userData = {
+    transactions: getLocalItem<Transaction[]>(LOCAL_STORAGE_KEYS.TRANSACTIONS, []),
+    accounts: getLocalItem<Account[]>(LOCAL_STORAGE_KEYS.ACCOUNTS, INITIAL_ACCOUNTS),
+    categories: getLocalItem<Category[]>(LOCAL_STORAGE_KEYS.CATEGORIES, INITIAL_CATEGORIES),
+    settings: getLocalItem<AppSettings>(LOCAL_STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS),
+  };
+  const result = await callGoogleScriptApi<{ userData: any }>('syncUserData', {
+    sessionToken: currentUser.sessionToken,
+    direction: syncDirection,
+    userData: syncDirection === 'push' ? userData : undefined,
+  });
+  if (!result.success || !result.data) {
+    publishSyncStatus('pending');
+    return false;
+  }
+  applyRemoteUserData(result.data.userData);
+  publishSyncStatus('synced');
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('expense-tracker-data-synced'));
+  return true;
+}
+
+function scheduleBackgroundSync() {
+  if (typeof window === 'undefined' || !getCurrentAppUser() || isGuestUser()) return;
+  if (backgroundSyncTimer) clearTimeout(backgroundSyncTimer);
+  backgroundSyncTimer = setTimeout(() => {
+    backgroundSyncTimer = null;
+    void syncCurrentUserData('push');
+  }, 700);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { if (!isGuestUser()) void syncCurrentUserData(); });
+  window.addEventListener('focus', () => { if (!isGuestUser()) void syncCurrentUserData(); });
 }
 
 // ==================== TRANSACTIONS API ====================
@@ -521,14 +818,23 @@ export async function resetToDefaultSeedData(): Promise<void> {
 }
 
 export async function syncBankEmails(): Promise<{ success: boolean; importedCount: number; message: string }> {
+  if (isGuestUser()) {
+    return { success: false, importedCount: 0, message: 'Bank email scanning requires signing in with Google Sheets backend.' };
+  }
   const gasUrl = getGoogleAppsScriptUrl();
   if (!gasUrl) {
     return { success: false, importedCount: 0, message: 'Google Apps Script URL is not configured' };
   }
 
   try {
-    const res = await callGoogleScriptApi<{ importedCount: number; skippedCount: number; transactions: Transaction[] }>('syncBankEmails');
+    await syncCurrentUserData('push');
+    const storedUser = getStoredAppUser();
+    const res = await callGoogleScriptApi<{ importedCount: number; skippedCount: number; transactions: Transaction[] }>(
+      'syncBankEmails',
+      { sessionToken: storedUser?.sessionToken }
+    );
     if (res.success && res.data) {
+      await syncCurrentUserData('pull');
       return {
         success: true,
         importedCount: res.data.importedCount,

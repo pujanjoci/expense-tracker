@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
+import { AppUser, getCurrentAppUser, isGuestUser } from '@/lib/api';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -28,12 +29,14 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar() {
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  useEffect(() => { setCurrentUser(getCurrentAppUser()); }, []);
   const pathname = usePathname();
-  const { openAddTransaction, isSyncing, refreshData, syncBankEmails, settings } = useApp();
+  const { openAddTransaction, isSyncing, syncStatus, refreshData, syncBankEmails, settings } = useApp();
 
   return (
     <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200/90 h-screen sticky top-0 shrink-0 z-30 select-none">
-      {/* Brand Header */}
+      {/* Header */}
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="h-9 w-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xs group-hover:bg-slate-800 transition-colors">
@@ -42,9 +45,6 @@ export function Sidebar() {
           <div>
             <span className="font-bold text-slate-900 tracking-tight text-base block leading-tight">
               Expense Tracker
-            </span>
-            <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">
-              Personal Finance
             </span>
           </div>
         </Link>
@@ -60,7 +60,7 @@ export function Sidebar() {
           <span>Add Transaction</span>
         </button>
 
-        {settings.googleSheetsUrl && (
+        {settings.googleSheetsUrl && currentUser?.role === 'owner' && (
           <button
             onClick={() => syncBankEmails()}
             disabled={isSyncing}
@@ -112,31 +112,55 @@ export function Sidebar() {
             <span
               className={cn(
                 'w-2 h-2 rounded-full',
-                settings.googleSheetsUrl ? 'bg-emerald-500' : 'bg-slate-400'
+                isGuestUser()
+                  ? 'bg-slate-400'
+                  : settings.googleSheetsUrl
+                  ? 'bg-emerald-500'
+                  : 'bg-slate-400'
               )}
             />
             <span className="font-medium">
-              {settings.googleSheetsUrl ? 'Cloud Sync' : 'Local Only'}
+              {isGuestUser()
+                ? 'Local Only (Offline)'
+                : syncStatus === 'syncing'
+                ? 'Syncing…'
+                : syncStatus === 'pending'
+                ? 'Waiting to sync'
+                : settings.googleSheetsUrl
+                ? 'Synced to Sheets'
+                : 'Local Only'}
             </span>
           </div>
-          <button
-            onClick={() => refreshData()}
-            disabled={isSyncing}
-            title="Refresh & Sync Data"
-            aria-label="Refresh Data"
-            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-          </button>
+          {!isGuestUser() && (
+            <button
+              onClick={() => refreshData()}
+              disabled={isSyncing}
+              title="Refresh & Sync Data"
+              aria-label="Refresh Data"
+              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 pt-1">
           <div className="h-8 w-8 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-700 font-semibold text-xs">
-            ME
+            {currentUser?.name
+              ? currentUser.name.slice(0, 2).toUpperCase()
+              : isGuestUser()
+              ? 'LO'
+              : currentUser?.email
+              ? currentUser.email.slice(0, 2).toUpperCase()
+              : 'ME'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 truncate">Personal Account</p>
-            <p className="text-[11px] text-slate-500 truncate">Default Currency: {settings.currency || 'NPR'}</p>
+            <p className="text-xs font-semibold text-slate-900 truncate">
+              {currentUser?.name || (isGuestUser() ? 'Local Account' : currentUser?.email || 'Personal Account')}
+            </p>
+            <p className="text-[11px] text-slate-500 truncate">
+              {isGuestUser() ? 'Offline Mode' : currentUser?.role === 'owner' ? 'Owner' : 'User'} · {settings.currency || 'NPR'}
+            </p>
           </div>
         </div>
       </div>

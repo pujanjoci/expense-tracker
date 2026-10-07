@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
@@ -9,9 +9,40 @@ import { AccountModal } from '@/components/accounts/AccountModal';
 import { CategoryModal } from '@/components/categories/CategoryModal';
 import { useApp } from '@/context/AppContext';
 import { Mail, Check, X } from 'lucide-react';
+import { LoginGate } from '@/components/auth/LoginGate';
+import { useRouter } from 'next/navigation';
+import { AppUser, getCurrentAppUser, setLocalGuestUser } from '@/lib/api';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { syncMessage, clearSyncMessage } = useApp();
+  const router = useRouter();
+  const { syncMessage, clearSyncMessage, refreshData } = useApp();
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
+
+  useEffect(() => {
+    const user = getCurrentAppUser();
+    if (user) {
+      void refreshData().finally(() => {
+        setCurrentUser(user);
+        setHasCheckedSession(true);
+      });
+    } else {
+      setHasCheckedSession(true);
+    }
+  }, [refreshData]);
+
+  const handleAuthenticated = async (user: AppUser) => {
+    await refreshData();
+    setCurrentUser(user);
+    router.push('/');
+  };
+
+  const handleSkip = async (name?: string) => {
+    const guest = setLocalGuestUser(name);
+    await refreshData();
+    setCurrentUser(guest);
+    router.push('/');
+  };
 
   useEffect(() => {
     if (syncMessage) {
@@ -21,6 +52,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return () => clearTimeout(timer);
     }
   }, [syncMessage, clearSyncMessage]);
+
+  if (!hasCheckedSession) {
+    return <div className="min-h-screen bg-slate-50" aria-label="Loading account" />;
+  }
+
+  if (!currentUser) {
+    return <LoginGate onAuthenticated={handleAuthenticated} onSkip={handleSkip} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/60 flex relative">

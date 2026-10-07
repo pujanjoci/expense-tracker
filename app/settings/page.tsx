@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { testGoogleScriptConnection, resetToDefaultSeedData } from '@/lib/api';
+import { AppUser, testGoogleScriptConnection, resetToDefaultSeedData, signOutUser, getCurrentAppUser, isGuestUser } from '@/lib/api';
 import {
   Settings,
   CircleDollarSign,
@@ -38,6 +38,8 @@ const PRESET_CURRENCIES = [
 
 export default function SettingsPage() {
   const { settings, updateSettings, refreshData, syncBankEmails, transactions, accounts, categories } = useApp();
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  useEffect(() => { setCurrentUser(getCurrentAppUser()); }, []);
 
   // Currency form state
   const [currency, setCurrency] = useState(settings.currency || 'NPR');
@@ -219,8 +221,9 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Sync Endpoint */}
-      <Card>
+      {/* Sync Endpoint (only for signed-in accounts) */}
+      {!isGuestUser() && (
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -232,7 +235,7 @@ export default function SettingsPage() {
             </Badge>
           </div>
           <CardDescription>
-            Set the backend endpoint URL used to fetch and sync your transaction data
+            Configure the shared sync service. User accounts keep each person's records distinct and private.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -245,7 +248,7 @@ export default function SettingsPage() {
                 setEndpointUrl(e.target.value);
                 setTestStatus(null);
               }}
-              helperText="The backend service URL that handles transaction syncing and email parsing"
+              helperText="Usually set by the app deployment. A custom endpoint overrides it in this browser."
             />
 
             {/* Test Status Banner */}
@@ -284,9 +287,10 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+      )}
 
       {/* Automated Email Tracking */}
-      <Card>
+      {currentUser?.role === 'owner' && <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <MailCheck className="w-5 h-5 text-emerald-600" />
@@ -327,7 +331,7 @@ export default function SettingsPage() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Data Management & Backups */}
       <Card>
@@ -368,6 +372,29 @@ export default function SettingsPage() {
               </div>
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{isGuestUser() ? 'Cloud Sync' : 'Account'}</CardTitle>
+          <CardDescription>
+            {isGuestUser() ? (
+              <>Do you need to sync to the cloud? <strong>Sign up</strong> to access and backup your data across devices.</>
+            ) : (
+              <>Signed in as <strong className="text-slate-800">{currentUser?.name ? `${currentUser.name} (${currentUser.email})` : (currentUser?.email || 'User')}</strong> &bull; Role: <span className="capitalize font-semibold text-slate-700">{currentUser?.role || 'user'}</span></>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-xs text-slate-500">
+            {isGuestUser()
+              ? 'Currently saving data on this device only.'
+              : 'Sign out before using this browser with another account.'}
+          </p>
+          <Button type="button" variant={isGuestUser() ? 'primary' : 'outline'} size="sm" onClick={() => { void signOutUser(); }}>
+            {isGuestUser() ? 'Sign Up' : 'Sign Out'}
+          </Button>
         </CardContent>
       </Card>
 
