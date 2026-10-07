@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -8,22 +8,40 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { AppUser, testGoogleScriptConnection, resetToDefaultSeedData, signOutUser, getCurrentAppUser, isGuestUser } from '@/lib/api';
+import {
+  AppUser,
+  resetToDefaultSeedData,
+  signOutUser,
+  getCurrentAppUser,
+  isGuestUser,
+  updateUserProfile,
+} from '@/lib/api';
+import {
+  PROFILE_AVATAR_OPTIONS,
+  PROFILE_BANNER_PRESETS,
+  ProfileAvatar,
+  getBannerStyle,
+} from '@/lib/profile-avatars';
+import {
+  THEME_OPTIONS,
+  getSavedTheme,
+  applyTheme,
+} from '@/lib/themes';
 import {
   Settings,
   CircleDollarSign,
   Database,
-  RefreshCw,
   Download,
   RotateCcw,
   Check,
-  AlertTriangle,
-  Cloud,
-  MailCheck,
-  Zap,
+  User as UserIcon,
+  Camera,
+  CheckCircle2,
+  Palette,
+  Image as ImageIcon,
+  Sparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-
 
 const PRESET_CURRENCIES = [
   { code: 'NPR', symbol: 'Rs.', name: 'Nepalese Rupee (NPR)', position: 'prefix' },
@@ -37,9 +55,33 @@ const PRESET_CURRENCIES = [
 ];
 
 export default function SettingsPage() {
-  const { settings, updateSettings, refreshData, syncBankEmails, transactions, accounts, categories } = useApp();
+  const { settings, updateSettings, refreshData, transactions, accounts, categories } = useApp();
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  useEffect(() => { setCurrentUser(getCurrentAppUser()); }, []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  // Profile editing state
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState<string | undefined>(undefined);
+  const [profilePreset, setProfilePreset] = useState<string>('default');
+  const [profileBanner, setProfileBanner] = useState<string>('midnight');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSavedToast, setProfileSavedToast] = useState(false);
+
+  // Theme state
+  const [activeTheme, setActiveTheme] = useState<string>('default');
+
+  useEffect(() => {
+    const user = getCurrentAppUser();
+    setCurrentUser(user);
+    if (user) {
+      setProfileName(user.name || '');
+      setProfileAvatar(user.avatar);
+      setProfilePreset(user.avatarPreset || 'default');
+      setProfileBanner(user.banner || 'midnight');
+    }
+    setActiveTheme(getSavedTheme());
+  }, []);
 
   // Currency form state
   const [currency, setCurrency] = useState(settings.currency || 'NPR');
@@ -47,21 +89,65 @@ export default function SettingsPage() {
   const [currencyPosition, setCurrencyPosition] = useState<'prefix' | 'suffix'>(
     settings.currencyPosition || 'prefix'
   );
-
-  // Cloud API Endpoint
-  const [endpointUrl, setEndpointUrl] = useState(settings.googleSheetsUrl || '');
-  const [testStatus, setTestStatus] = useState<{
-    tested: boolean;
-    success: boolean;
-    message: string;
-  } | null>(null);
-  const [isTesting, setIsTesting] = useState(false);
-  const [isSavingUrl, setIsSavingUrl] = useState(false);
   const [isSavingCurrency, setIsSavingCurrency] = useState(false);
 
   // Reset dialog state
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Please choose an image under 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const res = event.target?.result as string;
+      setProfileAvatar(res);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBannerFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Please choose a banner image under 3MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const res = event.target?.result as string;
+      setProfileBanner(res);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileName.trim()) return;
+    setIsSavingProfile(true);
+    try {
+      const updated = updateUserProfile({
+        name: profileName.trim(),
+        avatar: profileAvatar,
+        avatarPreset: profilePreset,
+        banner: profileBanner,
+      });
+      if (updated) setCurrentUser(updated);
+      setProfileSavedToast(true);
+      setTimeout(() => setProfileSavedToast(false), 3000);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleThemeChange = (themeId: string) => {
+    setActiveTheme(themeId);
+    applyTheme(themeId);
+  };
 
   const handlePresetChange = (code: string) => {
     const found = PRESET_CURRENCIES.find((c) => c.code === code);
@@ -85,42 +171,6 @@ export default function SettingsPage() {
       });
     } finally {
       setIsSavingCurrency(false);
-    }
-  };
-
-  const handleSaveEndpointUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingUrl(true);
-    try {
-      await updateSettings({
-        googleSheetsUrl: endpointUrl.trim(),
-      });
-      await refreshData();
-    } finally {
-      setIsSavingUrl(false);
-    }
-  };
-
-  const handleTestConnection = async () => {
-    if (!endpointUrl.trim()) {
-      setTestStatus({
-        tested: true,
-        success: false,
-        message: 'Please provide a valid sync endpoint URL first.',
-      });
-      return;
-    }
-    setIsTesting(true);
-    setTestStatus(null);
-    try {
-      const res = await testGoogleScriptConnection(endpointUrl.trim());
-      setTestStatus({
-        tested: true,
-        success: res.success,
-        message: res.message,
-      });
-    } finally {
-      setIsTesting(false);
     }
   };
 
@@ -158,9 +208,270 @@ export default function SettingsPage() {
       {/* Page Header */}
       <PageHeader
         title="Settings"
-        description="Manage your currency preferences, sync configuration, and data backups"
+        description="Personalize your identity, custom banners, themes, and display settings"
         icon={Settings}
       />
+
+      {/* User Profile & Banner Card */}
+      <Card className="overflow-hidden">
+        {/* Profile Banner Header */}
+        <div
+          className="relative h-28 sm:h-36 w-full border-b border-slate-200/80 transition-all duration-300"
+          style={getBannerStyle(profileBanner)}
+        >
+          {/* Subtle lighting overlay */}
+          <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]" />
+
+          {/* Banner Edit Button */}
+          <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+            <button
+              type="button"
+              onClick={() => bannerInputRef.current?.click()}
+              className="px-2.5 py-1 text-xs font-medium bg-black/60 hover:bg-black/80 text-white rounded-lg backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Upload custom banner image"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>Change Banner</span>
+            </button>
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleBannerFile}
+              className="hidden"
+            />
+          </div>
+        </div>
+
+        <CardContent className="pt-0 relative">
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            {/* Avatar Row (Floating over banner) */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-10 sm:-mt-12 pb-2">
+              <div className="flex items-end gap-3.5">
+                <div className="relative group">
+                  <ProfileAvatar
+                    avatar={profileAvatar}
+                    presetId={profilePreset}
+                    name={profileName}
+                    size="xl"
+                    className="ring-4 ring-white shadow-md"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Upload profile picture"
+                    className="absolute bottom-0 right-0 p-1.5 bg-slate-900 text-white rounded-full shadow-md hover:bg-slate-800 transition-colors cursor-pointer border-2 border-white"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFile}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="mb-1">
+                  <h3 className="text-base font-bold text-slate-900">
+                    {profileName || 'Your Profile'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {currentUser?.email || 'local@device'}
+                  </p>
+                </div>
+              </div>
+
+              <Badge variant={isGuestUser() ? 'secondary' : 'default'} className="self-start sm:self-end">
+                {isGuestUser() ? 'Offline Mode' : currentUser?.role === 'owner' ? '👑 Owner' : 'Personal Account'}
+              </Badge>
+            </div>
+
+            {/* Banner Presets Selection */}
+            <div className="space-y-2 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Profile Banner Style</span>
+                </p>
+                <span className="text-[11px] text-slate-400">Shows behind your profile in the sidebar</span>
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {PROFILE_BANNER_PRESETS.map((preset) => {
+                  const isSelected = profileBanner === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setProfileBanner(preset.id)}
+                      className={`h-11 rounded-lg border text-left p-1.5 transition-all relative overflow-hidden cursor-pointer ${
+                        isSelected
+                          ? 'border-slate-900 ring-2 ring-slate-900/20 scale-[1.03] shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300 opacity-90 hover:opacity-100'
+                      }`}
+                      style={{ background: preset.previewBg }}
+                    >
+                      <span className="absolute bottom-1 left-1.5 text-[9px] font-semibold text-white/90 drop-shadow-xs">
+                        {preset.name.split(' ')[0]}
+                      </span>
+                      {isSelected && (
+                        <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-white text-slate-900 rounded-full flex items-center justify-center text-[8px] font-bold">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Profile Icon Selection */}
+            <div className="space-y-2 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Custom Profile Icon (Or Default)</span>
+                </p>
+                {profileAvatar && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileAvatar(undefined)}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-medium cursor-pointer"
+                  >
+                    Clear Custom Photo
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Choose a sleek designer avatar icon. The first icon is the new default profile icon:
+              </p>
+
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
+                {PROFILE_AVATAR_OPTIONS.map((opt) => {
+                  const isSelected = profilePreset === opt.id && !profileAvatar;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setProfilePreset(opt.id);
+                        setProfileAvatar(undefined);
+                      }}
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/15 scale-105 shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70 bg-white'
+                      }`}
+                      title={opt.name}
+                    >
+                      <ProfileAvatar presetId={opt.id} size="md" />
+                      <span className="text-[10px] text-slate-700 font-medium truncate max-w-full">
+                        {opt.name.split(' ')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Name Input */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <Input
+                label="What should we call you?"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Enter your name"
+                required
+              />
+              <Input
+                label="Account Identifier"
+                value={currentUser?.email || 'local@device'}
+                disabled
+                helperText="Read-only account identifier"
+              />
+            </div>
+
+            {/* Profile Action Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              {profileSavedToast ? (
+                <span className="text-xs font-medium text-emerald-600 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Profile updated successfully!
+                </span>
+              ) : (
+                <span className="text-xs text-slate-500">
+                  Custom banner & avatar will appear across the sidebar and dashboard.
+                </span>
+              )}
+              <Button type="submit" size="sm" icon={Check} isLoading={isSavingProfile}>
+                Save Profile
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Theme Customizer Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Palette className="w-5 h-5 text-indigo-600" />
+            <CardTitle>Themes & Aesthetics</CardTitle>
+          </div>
+          <CardDescription>
+            Choose your preferred color theme and visual style for the entire web app
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {THEME_OPTIONS.map((theme) => {
+              const isActive = activeTheme === theme.id;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => handleThemeChange(theme.id)}
+                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                    isActive
+                      ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-500/30 shadow-xs'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-900">{theme.name}</span>
+                    {isActive && (
+                      <span className="w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Theme Color Palette Preview */}
+                  <div
+                    className="h-12 w-full rounded-lg border border-slate-200/60 p-2 flex items-center justify-between mb-2 shadow-2xs"
+                    style={{ background: theme.previewBg }}
+                  >
+                    <div
+                      className="h-6 w-12 rounded border border-white/20"
+                      style={{ background: theme.previewCard }}
+                    />
+                    <div
+                      className="h-4 w-4 rounded-full shadow-2xs"
+                      style={{ background: theme.accent }}
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-tight">
+                    {theme.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Currency Configuration */}
       <Card>
@@ -176,7 +487,6 @@ export default function SettingsPage() {
         <CardContent>
           <form onSubmit={handleSaveCurrency} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Preset selector */}
               <Select
                 label="Currency Preset"
                 value={currency}
@@ -189,7 +499,6 @@ export default function SettingsPage() {
                 ))}
               </Select>
 
-              {/* Currency Symbol */}
               <Input
                 label="Currency Symbol"
                 value={currencySymbol}
@@ -198,7 +507,6 @@ export default function SettingsPage() {
                 required
               />
 
-              {/* Symbol Placement */}
               <Select
                 label="Symbol Position"
                 value={currencyPosition}
@@ -220,118 +528,6 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-
-      {/* Sync Endpoint (only for signed-in accounts) */}
-      {!isGuestUser() && (
-        <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Cloud className="w-5 h-5 text-indigo-600" />
-              <CardTitle>Sync Endpoint</CardTitle>
-            </div>
-            <Badge variant={settings.googleSheetsUrl ? 'success' : 'secondary'}>
-              {settings.googleSheetsUrl ? 'Connected' : 'Not Connected'}
-            </Badge>
-          </div>
-          <CardDescription>
-            Configure the shared sync service. User accounts keep each person's records distinct and private.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSaveEndpointUrl} className="space-y-4">
-            <Input
-              label="Endpoint URL"
-              placeholder="https://your-backend-endpoint/exec"
-              value={endpointUrl}
-              onChange={(e) => {
-                setEndpointUrl(e.target.value);
-                setTestStatus(null);
-              }}
-              helperText="Usually set by the app deployment. A custom endpoint overrides it in this browser."
-            />
-
-            {/* Test Status Banner */}
-            {testStatus && (
-              <div
-                className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${
-                  testStatus.success
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-rose-50 border-rose-200 text-rose-800'
-                }`}
-              >
-                {testStatus.success ? (
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                )}
-                <span>{testStatus.message}</span>
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleTestConnection}
-                isLoading={isTesting}
-                icon={RefreshCw}
-              >
-                Test Connection
-              </Button>
-              <Button type="submit" size="sm" icon={Check} isLoading={isSavingUrl}>
-                Save Endpoint
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      )}
-
-      {/* Automated Email Tracking */}
-      {currentUser?.role === 'owner' && <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <MailCheck className="w-5 h-5 text-emerald-600" />
-            <CardTitle>Automated Bank & Wallet Tracking</CardTitle>
-          </div>
-          <CardDescription>
-            Automatically parse transactions from incoming bank alert emails
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-xs text-slate-600">
-          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
-            <p className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span>Smart Tracking Features:</span>
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li>Automatically extracts debits, credits, amounts, and dates.</li>
-              <li>Detects personal eSewa top-ups as transfers to your wallet.</li>
-              <li>Automatically categorizes expenses (Food & Dining, Utilities, Fuel, Groceries, etc.).</li>
-              <li>Deduplicates alert emails so each transaction is recorded exactly once.</li>
-            </ul>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-            <div>
-              <p className="font-medium text-slate-800">Scan Alert Emails Now</p>
-              <p className="text-[11px] text-slate-500">Trigger an on-demand scan of your recent alert emails</p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              icon={MailCheck}
-              onClick={() => syncBankEmails()}
-              disabled={!settings.googleSheetsUrl}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              Sync Now
-            </Button>
-          </div>
-        </CardContent>
-      </Card>}
 
       {/* Data Management & Backups */}
       <Card>
@@ -375,22 +571,23 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Account Session Card */}
       <Card>
         <CardHeader>
-          <CardTitle>{isGuestUser() ? 'Cloud Sync' : 'Account'}</CardTitle>
+          <CardTitle>{isGuestUser() ? 'Account Status' : 'Account'}</CardTitle>
           <CardDescription>
             {isGuestUser() ? (
-              <>Do you need to sync to the cloud? <strong>Sign up</strong> to access and backup your data across devices.</>
+              <>Currently running on this device. Sign up anytime to backup your data across devices.</>
             ) : (
-              <>Signed in as <strong className="text-slate-800">{currentUser?.name ? `${currentUser.name} (${currentUser.email})` : (currentUser?.email || 'User')}</strong> &bull; Role: <span className="capitalize font-semibold text-slate-700">{currentUser?.role || 'user'}</span></>
+              <>Signed in as <strong className="text-slate-800">{currentUser?.name ? `${currentUser.name} (${currentUser.email})` : (currentUser?.email || 'User')}</strong></>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4">
           <p className="text-xs text-slate-500">
             {isGuestUser()
-              ? 'Currently saving data on this device only.'
-              : 'Sign out before using this browser with another account.'}
+              ? 'Data is saved securely on this device.'
+              : 'Signed in on this browser.'}
           </p>
           <Button type="button" variant={isGuestUser() ? 'primary' : 'outline'} size="sm" onClick={() => { void signOutUser(); }}>
             {isGuestUser() ? 'Sign Up' : 'Sign Out'}

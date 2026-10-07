@@ -1,15 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Plus, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/context/AppContext';
-import { getCurrentAppUser } from '@/lib/api';
+import { getCurrentAppUser, type AppUser } from '@/lib/api';
 
 export function DashboardHeader() {
   const { openAddTransaction } = useApp();
-  const user = getCurrentAppUser();
+  const [user, setUser] = useState<AppUser | null>(null);
+
+  React.useEffect(() => {
+    setUser(getCurrentAppUser());
+    const handleUpdate = (e: any) => {
+      if (e.detail) setUser(e.detail);
+      else setUser(getCurrentAppUser());
+    };
+    window.addEventListener('expense-tracker-user-updated', handleUpdate);
+    return () => window.removeEventListener('expense-tracker-user-updated', handleUpdate);
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();

@@ -25,6 +25,11 @@ export interface AppUser {
   name: string;
   email: string;
   role: 'owner' | 'user' | 'guest';
+  avatar?: string;
+  avatarPreset?: string;
+  banner?: string;
+  theme?: string;
+  bio?: string;
 }
 
 export const LOCAL_GUEST_USER: AppUser = {
@@ -56,6 +61,32 @@ export function getCurrentAppUser(): AppUser | null {
 export function isGuestUser(): boolean {
   const user = getCurrentAppUser();
   return user?.role === 'guest' || user?.id === 'local_guest';
+}
+
+export function updateUserProfile(updates: Partial<AppUser>): AppUser | null {
+  if (typeof window === 'undefined') return null;
+  const stored = getStoredAppUser();
+  const current = stored?.user || getCurrentAppUser();
+  if (!current) return null;
+
+  const newName = updates.name !== undefined ? updates.name.trim() : current.name;
+  const updatedUser: AppUser = {
+    ...current,
+    ...updates,
+    name: newName || current.name,
+  };
+
+  localStorage.setItem(LOCAL_STORAGE_KEYS.APP_USER, JSON.stringify({
+    user: updatedUser,
+    sessionToken: stored?.sessionToken || '',
+  } satisfies StoredAppUser));
+
+  if (updatedUser.name) {
+    localStorage.setItem('username', updatedUser.name);
+  }
+
+  window.dispatchEvent(new CustomEvent('expense-tracker-user-updated', { detail: updatedUser }));
+  return updatedUser;
 }
 
 export function setLocalGuestUser(name?: string): AppUser {
@@ -504,6 +535,20 @@ export async function createTransaction(
   const updated = [newTx, ...current];
   setLocalItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, updated);
   return newTx;
+}
+
+export async function createTransactionsBulk(
+  txs: (Omit<Transaction, 'id' | 'createdAt'> & { id?: string; createdAt?: string })[]
+): Promise<Transaction[]> {
+  const current = getLocalItem<Transaction[]>(LOCAL_STORAGE_KEYS.TRANSACTIONS, []);
+  const newItems: Transaction[] = txs.map((tx, idx) => ({
+    ...tx,
+    id: tx.id || `tx-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+    createdAt: tx.createdAt || new Date().toISOString(),
+  }));
+  const updated = [...newItems, ...current];
+  setLocalItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, updated);
+  return newItems;
 }
 
 export async function updateTransaction(

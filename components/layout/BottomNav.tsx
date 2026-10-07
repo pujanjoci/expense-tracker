@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   Plus,
-  ChartNoAxesCombined,
+  Tag,
   WalletCards,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,18 +57,18 @@ export function BottomNav() {
           </button>
         </div>
 
-        {/* Analytics */}
+        {/* Categories */}
         <Link
-          href="/analytics"
+          href="/categories"
           className={cn(
             'flex flex-col items-center justify-center flex-1 py-1 gap-1 text-[11px] font-medium transition-colors',
-            pathname === '/analytics' ? 'text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-900'
+            pathname === '/categories' ? 'text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-900'
           )}
         >
-          <ChartNoAxesCombined
-            className={cn('w-5 h-5', pathname === '/analytics' ? 'text-slate-900' : 'text-slate-500')}
+          <Tag
+            className={cn('w-5 h-5', pathname === '/categories' ? 'text-slate-900' : 'text-slate-500')}
           />
-          <span>Analytics</span>
+          <span>Categories</span>
         </Link>
 
         {/* Accounts */}

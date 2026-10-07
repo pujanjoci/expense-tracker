@@ -10,7 +10,7 @@ import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
 import { TableSkeleton } from '@/components/common/LoadingState';
-import { ArrowLeftRight, Plus, Download } from 'lucide-react';
+import { ArrowLeftRight, Plus, Download, UploadCloud } from 'lucide-react';
 import { Transaction } from '@/types';
 
 export default function TransactionsPage() {
@@ -172,6 +172,16 @@ export default function TransactionsPage() {
                 Export CSV
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              icon={UploadCloud}
+              onClick={openAddTransaction}
+              title="Import bank statement (CSV or PDF)"
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            >
+              Import Statement
+            </Button>
             <Button size="sm" icon={Plus} onClick={openAddTransaction}>
               Add Transaction
             </Button>

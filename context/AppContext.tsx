@@ -62,6 +62,7 @@ interface AppContextType {
   // Actions
   refreshData: () => Promise<void>;
   createTransaction: (data: Omit<Transaction, 'id' | 'createdAt'>) => Promise<Transaction>;
+  createTransactionsBulk: (data: (Omit<Transaction, 'id' | 'createdAt'>)[]) => Promise<Transaction[]>;
   updateTransaction: (id: string, data: Partial<Transaction>) => Promise<Transaction>;
   deleteTransaction: (id: string) => Promise<boolean>;
 
@@ -254,6 +255,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return created;
   }, []);
 
+  const createTransactionsBulk = useCallback(async (data: (Omit<Transaction, 'id' | 'createdAt'>)[]) => {
+    const created = await api.createTransactionsBulk(data);
+    setTransactions((prev) => [...created, ...prev]);
+    return created;
+  }, []);
+
   const updateTransaction = useCallback(async (id: string, data: Partial<Transaction>) => {
     const updated = await api.updateTransaction(id, data);
     setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
@@ -387,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         refreshData,
         createTransaction,
+        createTransactionsBulk,
         updateTransaction,
         deleteTransaction,
 

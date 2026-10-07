@@ -6,6 +6,7 @@ import { WalletCards, Settings, RefreshCw, SlidersHorizontal, MailCheck } from '
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 import { AppUser, getCurrentAppUser } from '@/lib/api';
+import { ProfileAvatar } from '@/lib/profile-avatars';
 
 export function Header() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -51,19 +52,16 @@ export function Header() {
         </button>
 
         <Link
-          href="/categories"
-          aria-label="Categories"
-          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-        </Link>
-
-        <Link
           href="/settings"
-          aria-label="Settings"
-          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+          aria-label="Settings and Profile"
+          className="p-1 hover:opacity-85 transition-opacity"
         >
-          <Settings className="w-4 h-4" />
+          <ProfileAvatar
+            avatar={currentUser?.avatar}
+            presetId={currentUser?.avatarPreset}
+            name={currentUser?.name}
+            size="sm"
+          />
         </Link>
       </div>
     </header>

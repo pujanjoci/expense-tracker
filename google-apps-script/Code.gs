@@ -51,6 +51,7 @@ function onOpen(e) {
       .addSeparator()
       .addItem('Set Up / Reset Owner Login', 'menuSetupOwnerLogin')
       .addItem('Reset User Password', 'menuResetUserPassword')
+      .addItem('Remove Extra User Sheets (Keep Base Only)', 'menuRemoveExtraUserSheets')
       .addToUi();
   } catch (err) {
     // headless context
@@ -518,43 +519,81 @@ function publicUser(user) {
 
 function appUserSheetName(userId, suffix) {
   if (String(userId) === 'owner') return SHEET_NAMES[suffix.toUpperCase()];
-  return ('User_' + String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) + '_' + suffix).slice(0, 99);
+  if (suffix === 'Transactions') {
+    return ('User_' + String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) + '_Transactions').slice(0, 99);
+  }
+  // Accounts, Categories, and Settings are shared across users — do not create duplicate per-user tabs!
+  return SHEET_NAMES[suffix.toUpperCase()];
 }
 
 function ensureAppUserSheets(userId) {
-  ['Transactions', 'Accounts', 'Categories', 'Settings'].forEach(function(key) {
-    var name = appUserSheetName(userId, key);
-    getOrCreateSheet(name, HEADERS[key.toUpperCase()]);
+  [SHEET_NAMES.TRANSACTIONS, SHEET_NAMES.ACCOUNTS, SHEET_NAMES.CATEGORIES, SHEET_NAMES.SETTINGS].forEach(function(name) {
+    var key = Object.keys(SHEET_NAMES).find(function(k) { return SHEET_NAMES[k] === name; });
+    getOrCreateSheet(name, HEADERS[key]);
   });
+  if (String(userId) !== 'owner') {
+    getOrCreateSheet(appUserSheetName(userId, 'Transactions'), HEADERS.TRANSACTIONS);
+  }
 }
 
 function readAppUserData(userId) {
   ensureAppUserSheets(userId);
-  var settingsRows = getRowsAsObjects(appUserSheetName(userId, 'Settings'));
+  var settingsRows = getRowsAsObjects(SHEET_NAMES.SETTINGS);
   var settings = {};
   settingsRows.forEach(function(row) { settings[row.key] = row.value; });
   return {
     transactions: getRowsAsObjects(appUserSheetName(userId, 'Transactions')),
-    accounts: getRowsAsObjects(appUserSheetName(userId, 'Accounts')),
-    categories: getRowsAsObjects(appUserSheetName(userId, 'Categories')),
+    accounts: getRowsAsObjects(SHEET_NAMES.ACCOUNTS),
+    categories: getRowsAsObjects(SHEET_NAMES.CATEGORIES),
     settings: settings
   };
 }
 
 function hasAppUserData(data) {
-  return data.transactions.length > 0 || data.accounts.length > 0 || data.categories.length > 0 || Object.keys(data.settings).length > 0;
+  return Boolean(data && data.transactions && data.transactions.length > 0);
 }
 
 function writeAppUserData(userId, data) {
   ensureAppUserSheets(userId);
+  // Per-user data is only stored in Transactions
   replaceAppUserRows(appUserSheetName(userId, 'Transactions'), HEADERS.TRANSACTIONS, data.transactions || []);
-  replaceAppUserRows(appUserSheetName(userId, 'Accounts'), HEADERS.ACCOUNTS, data.accounts || []);
-  replaceAppUserRows(appUserSheetName(userId, 'Categories'), HEADERS.CATEGORIES, data.categories || []);
-  var settings = data.settings || {};
-  var settingsRows = Object.keys(settings).filter(function(key) { return key !== 'googleSheetsUrl'; }).map(function(key) {
-    return { key: key, value: settings[key] };
-  });
-  replaceAppUserRows(appUserSheetName(userId, 'Settings'), HEADERS.SETTINGS, settingsRows);
+
+  // Only the owner can write changes directly into the shared Accounts, Categories, or Settings
+  if (String(userId) === 'owner') {
+    if (data.accounts && data.accounts.length) {
+      replaceAppUserRows(SHEET_NAMES.ACCOUNTS, HEADERS.ACCOUNTS, data.accounts);
+    }
+    if (data.categories && data.categories.length) {
+      replaceAppUserRows(SHEET_NAMES.CATEGORIES, HEADERS.CATEGORIES, data.categories);
+    }
+    if (data.settings) {
+      var settings = data.settings || {};
+      var settingsRows = Object.keys(settings).filter(function(key) { return key !== 'googleSheetsUrl'; }).map(function(key) {
+        return { key: key, value: settings[key] };
+      });
+      if (settingsRows.length) {
+        replaceAppUserRows(SHEET_NAMES.SETTINGS, HEADERS.SETTINGS, settingsRows);
+      }
+    }
+  }
+}
+
+function menuRemoveExtraUserSheets() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ss.getSheets();
+    var removed = 0;
+    sheets.forEach(function(sh) {
+      var name = sh.getName();
+      if (/^User_.*_(Accounts|Categories|Settings)$/i.test(name)) {
+        ss.deleteSheet(sh);
+        removed++;
+      }
+    });
+    SpreadsheetApp.getActiveSpreadsheet().toast('Cleaned ' + removed + ' extra user sheets (Accounts/Categories/Settings).', 'Sheets Cleaned', 5);
+  } catch (err) {
+    SpreadsheetApp.getActiveSpreadsheet().toast('Error cleaning sheets: ' + err.message, 'Error', 5);
+  }
 }
 
 function replaceAppUserRows(sheetName, headers, records) {

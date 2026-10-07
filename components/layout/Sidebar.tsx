@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { AppUser, getCurrentAppUser, isGuestUser } from '@/lib/api';
+import { ProfileAvatar, getBannerStyle } from '@/lib/profile-avatars';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -30,7 +31,15 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  useEffect(() => { setCurrentUser(getCurrentAppUser()); }, []);
+  useEffect(() => {
+    setCurrentUser(getCurrentAppUser());
+    const handleUserUpdate = (e: any) => {
+      if (e.detail) setCurrentUser(e.detail);
+      else setCurrentUser(getCurrentAppUser());
+    };
+    window.addEventListener('expense-tracker-user-updated', handleUserUpdate);
+    return () => window.removeEventListener('expense-tracker-user-updated', handleUserUpdate);
+  }, []);
   const pathname = usePathname();
   const { openAddTransaction, isSyncing, syncStatus, refreshData, syncBankEmails, settings } = useApp();
 
@@ -105,62 +114,72 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom Profile / Sync Info */}
-      <div className="p-4 border-t border-slate-100 space-y-3 bg-slate-50/50">
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                'w-2 h-2 rounded-full',
-                isGuestUser()
-                  ? 'bg-slate-400'
-                  : settings.googleSheetsUrl
-                  ? 'bg-emerald-500'
-                  : 'bg-slate-400'
-              )}
-            />
-            <span className="font-medium">
-              {isGuestUser()
-                ? 'Local Only (Offline)'
-                : syncStatus === 'syncing'
-                ? 'Syncing…'
-                : syncStatus === 'pending'
-                ? 'Waiting to sync'
-                : settings.googleSheetsUrl
-                ? 'Synced to Sheets'
-                : 'Local Only'}
-            </span>
-          </div>
-          {!isGuestUser() && (
-            <button
-              onClick={() => refreshData()}
-              disabled={isSyncing}
-              title="Refresh & Sync Data"
-              aria-label="Refresh Data"
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-            >
-              <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-            </button>
-          )}
-        </div>
+      {/* Bottom Profile / Banner Card */}
+      <div className="p-3 border-t border-slate-100">
+        <div
+          className="relative overflow-hidden rounded-xl border border-slate-200/50 shadow-xs transition-all duration-300"
+          style={getBannerStyle(currentUser?.banner || 'midnight')}
+        >
+          {/* Subtle overlay to guarantee high-contrast text readability */}
+          <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]" />
 
-        <div className="flex items-center gap-3 pt-1">
-          <div className="h-8 w-8 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-700 font-semibold text-xs">
-            {currentUser?.name
-              ? currentUser.name.slice(0, 2).toUpperCase()
-              : isGuestUser()
-              ? 'LO'
-              : currentUser?.email
-              ? currentUser.email.slice(0, 2).toUpperCase()
-              : 'ME'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {currentUser?.name || (isGuestUser() ? 'Local Account' : currentUser?.email || 'Personal Account')}
-            </p>
-            <p className="text-[11px] text-slate-500 truncate">
-              {isGuestUser() ? 'Offline Mode' : currentUser?.role === 'owner' ? 'Owner' : 'User'} · {settings.currency || 'NPR'}
-            </p>
+          <div className="relative p-3 space-y-2.5 z-10 text-white">
+            <div className="flex items-center justify-between text-[11px] text-white/80">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full ring-2 ring-white/20',
+                    isGuestUser()
+                      ? 'bg-amber-400'
+                      : settings.googleSheetsUrl
+                      ? 'bg-emerald-400'
+                      : 'bg-slate-400'
+                  )}
+                />
+                <span className="font-medium text-[10px] tracking-wide uppercase">
+                  {isGuestUser()
+                    ? 'Offline'
+                    : syncStatus === 'syncing'
+                    ? 'Syncing…'
+                    : syncStatus === 'pending'
+                    ? 'Pending'
+                    : settings.googleSheetsUrl
+                    ? 'Synced'
+                    : 'Local'}
+                </span>
+              </div>
+              {!isGuestUser() && (
+                <button
+                  onClick={() => refreshData()}
+                  disabled={isSyncing}
+                  title="Refresh & Sync Data"
+                  aria-label="Refresh Data"
+                  className="p-1 text-white/70 hover:text-white hover:bg-white/15 rounded-md transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={cn('w-3 h-3', isSyncing && 'animate-spin')} />
+                </button>
+              )}
+            </div>
+
+            <Link href="/settings" className="flex items-center gap-2.5 group">
+              <ProfileAvatar
+                avatar={currentUser?.avatar}
+                presetId={currentUser?.avatarPreset}
+                name={currentUser?.name}
+                size="md"
+                className="ring-2 ring-white/30 group-hover:ring-white/70 transition-all shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate group-hover:text-white/90">
+                  {currentUser?.name || (isGuestUser() ? 'Local Account' : currentUser?.email || 'Personal Account')}
+                </p>
+                <p className="text-[10px] text-white/75 truncate flex items-center gap-1">
+                  <span className="capitalize">{currentUser?.role === 'owner' ? '👑 Owner' : isGuestUser() ? 'Offline' : 'User'}</span>
+                  <span>&bull;</span>
+                  <span>{settings.currency || 'NPR'}</span>
+                </p>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
