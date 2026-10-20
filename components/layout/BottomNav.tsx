@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   Plus,
-  Tag,
+  PiggyBank,
   WalletCards,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,18 +57,18 @@ export function BottomNav() {
           </button>
         </div>
 
-        {/* Categories */}
+        {/* Savings */}
         <Link
-          href="/categories"
+          href="/savings"
           className={cn(
             'flex flex-col items-center justify-center flex-1 py-1 gap-1 text-[11px] font-medium transition-colors',
-            pathname === '/categories' ? 'text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-900'
+            pathname === '/savings' ? 'text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-900'
           )}
         >
-          <Tag
-            className={cn('w-5 h-5', pathname === '/categories' ? 'text-slate-900' : 'text-slate-500')}
+          <PiggyBank
+            className={cn('w-5 h-5', pathname === '/savings' ? 'text-slate-900' : 'text-slate-500')}
           />
-          <span>Categories</span>
+          <span>Savings</span>
         </Link>
 
         {/* Accounts */}

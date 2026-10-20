@@ -64,27 +64,27 @@ export function Modal({
       {/* Modal / Drawer Content */}
       <div
         className={cn(
-          'relative w-full rounded-t-2xl sm:rounded-xl bg-white border border-slate-200/80 shadow-xl transition-all max-h-[90vh] flex flex-col z-10 animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200',
+          'relative w-full rounded-t-2xl sm:rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl transition-all max-h-[90vh] flex flex-col z-10 animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200',
           maxWidths[maxWidth]
         )}
       >
         {/* Mobile handle indicator */}
-        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-2 sm:hidden" />
+        <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-2 sm:hidden" />
 
         {/* Header */}
-        <div className="flex items-start justify-between p-4 sm:p-6 border-b border-slate-100">
+        <div className="flex items-start justify-between p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 id="modal-title" className="text-lg font-semibold text-slate-900 tracking-tight">
+            <h2 id="modal-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
               {title}
             </h2>
             {description && (
-              <p className="mt-1 text-xs sm:text-sm text-slate-500">{description}</p>
+              <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">{description}</p>
             )}
           </div>
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

@@ -39,9 +39,9 @@ export function TransactionTable({
   categories.forEach((c) => categoryMap.set(c.id, c));
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-white shadow-xs">
-      <table className="w-full text-left text-sm text-slate-600 border-collapse">
-        <thead className="bg-slate-50/75 border-b border-slate-200/80 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+    <div className="w-full overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-xs">
+      <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300 border-collapse">
+        <thead className="bg-slate-50/75 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
           <tr>
             <th className="py-3 px-4">Date</th>
             <th className="py-3 px-4">Description</th>
@@ -52,7 +52,7 @@ export function TransactionTable({
             <th className="py-3 px-4 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
           {transactions.map((tx) => {
             const account = accountMap.get(tx.accountId);
             const targetAccount = tx.transferToAccountId
@@ -67,15 +67,15 @@ export function TransactionTable({
             return (
               <tr
                 key={tx.id}
-                className="hover:bg-slate-50/70 transition-colors group"
+                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group"
               >
                 {/* Date */}
-                <td className="py-3.5 px-4 whitespace-nowrap text-xs text-slate-500 font-medium">
+                <td className="py-3.5 px-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {formatDate(tx.date, 'dd MMM yyyy')}
                 </td>
 
                 {/* Description */}
-                <td className="py-3.5 px-4 font-medium text-slate-900 max-w-xs truncate">
+                <td className="py-3.5 px-4 font-medium text-slate-900 dark:text-slate-100 max-w-xs truncate">
                   {tx.description || (isTransfer ? 'Transfer' : category?.name || 'Transaction')}
                 </td>
 
@@ -84,10 +84,10 @@ export function TransactionTable({
                   {isTransfer ? (
                     <span className="text-xs text-slate-400 italic">N/A (Transfer)</span>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
                       <CategoryIcon
                         name={category?.icon || 'HelpCircle'}
-                        className="w-3.5 h-3.5 text-slate-500"
+                        className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
                       />
                       <span>{category?.name || 'Uncategorized'}</span>
                     </div>
@@ -130,9 +130,9 @@ export function TransactionTable({
                 <td className="py-3.5 px-4 whitespace-nowrap text-right font-bold text-sm">
                   <span
                     className={cn(
-                      isIncome && 'text-emerald-600',
-                      isExpense && 'text-slate-900',
-                      isTransfer && 'text-indigo-600'
+                      isIncome && 'text-emerald-600 dark:text-emerald-400',
+                      isExpense && 'text-slate-900 dark:text-slate-100',
+                      isTransfer && 'text-indigo-600 dark:text-indigo-400'
                     )}
                   >
                     {isIncome ? '+ ' : isExpense ? '- ' : ''}
@@ -146,14 +146,14 @@ export function TransactionTable({
                     <button
                       onClick={() => onEdit(tx)}
                       aria-label="Edit transaction"
-                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => onDelete(tx.id)}
                       aria-label="Delete transaction"
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -10,6 +10,14 @@ import {
   MonthlyOverview,
   CategorySpending,
   MonthlyTrend,
+  SavingsGoal,
+  SavingsTransaction,
+  SavingsGoalProgress,
+  SavingsSummary,
+  Budget,
+  CategoryBudgetStatus,
+  RecurringTransaction,
+  InsightCardData,
 } from '@/types';
 import * as api from '@/lib/api';
 import {
@@ -18,6 +26,10 @@ import {
   calculateMonthlyOverview,
   calculateCategoryBreakdown,
   calculateMonthlyTrends,
+  calculateSavingsGoalsProgress,
+  calculateSavingsSummary,
+  calculateBudgetsStatus,
+  generateInsights,
   formatCurrency as utilFormatCurrency,
 } from '@/lib/utils';
 import { DEFAULT_SETTINGS } from '@/lib/seedData';
@@ -33,6 +45,14 @@ interface AppContextType {
   categorySpending: CategorySpending[];
   categoryIncome: CategorySpending[];
   monthlyTrends: MonthlyTrend[];
+  savingsGoals: SavingsGoal[];
+  savingsTransactions: SavingsTransaction[];
+  savingsGoalsProgress: SavingsGoalProgress[];
+  savingsSummary: SavingsSummary;
+  budgets: Budget[];
+  budgetStatus: CategoryBudgetStatus[];
+  recurringTransactions: RecurringTransaction[];
+  insights: InsightCardData[];
   isLoading: boolean;
   isSyncing: boolean;
   syncStatus: 'pending' | 'syncing' | 'synced';
@@ -74,6 +94,26 @@ interface AppContextType {
   updateCategory: (id: string, data: Partial<Category>) => Promise<Category>;
   deleteCategory: (id: string) => Promise<boolean>;
 
+  // Savings Actions
+  createSavingsGoal: (data: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => Promise<SavingsGoal>;
+  updateSavingsGoal: (id: string, data: Partial<SavingsGoal>) => Promise<SavingsGoal>;
+  archiveSavingsGoal: (id: string) => Promise<SavingsGoal>;
+  unarchiveSavingsGoal: (id: string) => Promise<SavingsGoal>;
+  deleteSavingsGoal: (id: string) => Promise<boolean>;
+
+  createSavingsTransaction: (data: Omit<SavingsTransaction, 'id' | 'createdAt'>) => Promise<SavingsTransaction>;
+  deleteSavingsTransaction: (id: string) => Promise<boolean>;
+
+  // Budgets Actions
+  createBudget: (data: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Budget>;
+  updateBudget: (id: string, data: Partial<Budget>) => Promise<Budget>;
+  deleteBudget: (id: string) => Promise<boolean>;
+
+  // Recurring Actions
+  createRecurringTransaction: (data: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<RecurringTransaction>;
+  updateRecurringTransaction: (id: string, data: Partial<RecurringTransaction>) => Promise<RecurringTransaction>;
+  deleteRecurringTransaction: (id: string) => Promise<boolean>;
+
   updateSettings: (data: Partial<AppSettings>) => Promise<AppSettings>;
   formatMoney: (amount: number, options?: { showSign?: boolean; decimals?: number }) => string;
   syncBankEmails: () => Promise<{ success: boolean; importedCount: number; message: string }>;
@@ -88,6 +128,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [savingsTransactions, setSavingsTransactions] = useState<SavingsTransaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<'pending' | 'syncing' | 'synced'>('synced');
@@ -105,11 +149,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const readCachedData = useCallback(async () => {
     try {
-      const [txs, accs, cats, sets] = await Promise.all([
+      // Process any due recurring transactions first so transactions are current
+      try {
+        await api.processDueRecurringTransactions();
+      } catch (e) {
+        console.warn('Auto-recurring processing notice:', e);
+      }
+
+      const [txs, accs, cats, sets, goals, stxs, bdgs, recs] = await Promise.all([
         api.getTransactions(),
         api.getAccounts(),
         api.getCategories(),
         api.getSettings(),
+        api.getSavingsGoals(),
+        api.getSavingsTransactions(),
+        api.getBudgets(),
+        api.getRecurringTransactions(),
       ]);
 
       // Deduplicate transactions by ID and content signature
@@ -128,6 +183,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAccounts(accs || []);
       setCategories(cats || []);
       setSettings(sets || DEFAULT_SETTINGS);
+      setSavingsGoals(goals || []);
+      setSavingsTransactions(stxs || []);
+      setBudgets(bdgs || []);
+      setRecurringTransactions(recs || []);
     } catch (err: any) {
       console.error('Failed to load application data:', err);
       setError(err.message || 'Failed to fetch financial data');
@@ -199,6 +258,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const monthlyTrends = useMemo(() => {
     return calculateMonthlyTrends(transactions, 6);
   }, [transactions]);
+
+  const savingsGoalsProgress = useMemo(() => {
+    return calculateSavingsGoalsProgress(savingsGoals, savingsTransactions);
+  }, [savingsGoals, savingsTransactions]);
+
+  const savingsSummary = useMemo(() => {
+    return calculateSavingsSummary(savingsGoalsProgress);
+  }, [savingsGoalsProgress]);
+
+  const budgetStatus = useMemo(() => {
+    return calculateBudgetsStatus(budgets, transactions, categories);
+  }, [budgets, transactions, categories]);
+
+  const insights = useMemo(() => {
+    return generateInsights(transactions, budgets, recurringTransactions, monthlyOverview);
+  }, [transactions, budgets, recurringTransactions, monthlyOverview]);
 
   // Transaction Modal Controls
   const openAddTransaction = useCallback(() => {
@@ -315,6 +390,109 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return success;
   }, []);
 
+  // Savings CRUD actions
+  const createSavingsGoal = useCallback(async (data: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const created = await api.createSavingsGoal(data);
+    setSavingsGoals((prev) => [created, ...prev]);
+    return created;
+  }, []);
+
+  const updateSavingsGoal = useCallback(async (id: string, data: Partial<SavingsGoal>) => {
+    const updated = await api.updateSavingsGoal(id, data);
+    setSavingsGoals((prev) => prev.map((g) => (g.id === id ? updated : g)));
+    return updated;
+  }, []);
+
+  const archiveSavingsGoal = useCallback(async (id: string) => {
+    const updated = await api.updateSavingsGoal(id, { status: 'archived' });
+    setSavingsGoals((prev) => prev.map((g) => (g.id === id ? updated : g)));
+    return updated;
+  }, []);
+
+  const unarchiveSavingsGoal = useCallback(async (id: string) => {
+    const updated = await api.updateSavingsGoal(id, { status: 'active' });
+    setSavingsGoals((prev) => prev.map((g) => (g.id === id ? updated : g)));
+    return updated;
+  }, []);
+
+  const deleteSavingsGoal = useCallback(async (id: string) => {
+    const success = await api.deleteSavingsGoal(id);
+    if (success) {
+      setSavingsGoals((prev) => prev.filter((g) => g.id !== id));
+      setSavingsTransactions((prev) => prev.filter((tx) => tx.goalId !== id));
+    }
+    return success;
+  }, []);
+
+  const createSavingsTransaction = useCallback(async (data: Omit<SavingsTransaction, 'id' | 'createdAt'>) => {
+    const created = await api.createSavingsTransaction(data);
+    setSavingsTransactions((prev) => [created, ...prev]);
+    // Refresh goals timestamp locally
+    setSavingsGoals((prev) =>
+      prev.map((g) => (g.id === data.goalId ? { ...g, updatedAt: new Date().toISOString() } : g))
+    );
+    return created;
+  }, []);
+
+  const deleteSavingsTransaction = useCallback(async (id: string) => {
+    const target = savingsTransactions.find((tx) => tx.id === id);
+    const success = await api.deleteSavingsTransaction(id);
+    if (success) {
+      setSavingsTransactions((prev) => prev.filter((tx) => tx.id !== id));
+      if (target) {
+        setSavingsGoals((prev) =>
+          prev.map((g) => (g.id === target.goalId ? { ...g, updatedAt: new Date().toISOString() } : g))
+        );
+      }
+    }
+    return success;
+  }, [savingsTransactions]);
+
+  // Budgets Actions
+  const createBudget = useCallback(async (data: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const created = await api.createBudget(data);
+    setBudgets((prev) => [...prev, created]);
+    return created;
+  }, []);
+
+  const updateBudget = useCallback(async (id: string, data: Partial<Budget>) => {
+    const updated = await api.updateBudget(id, data);
+    setBudgets((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    return updated;
+  }, []);
+
+  const deleteBudget = useCallback(async (id: string) => {
+    const success = await api.deleteBudget(id);
+    if (success) {
+      setBudgets((prev) => prev.filter((b) => b.id !== id));
+    }
+    return success;
+  }, []);
+
+  // Recurring Actions
+  const createRecurringTransaction = useCallback(
+    async (data: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const created = await api.createRecurringTransaction(data);
+      setRecurringTransactions((prev) => [created, ...prev]);
+      return created;
+    },
+    []
+  );
+
+  const updateRecurringTransaction = useCallback(async (id: string, data: Partial<RecurringTransaction>) => {
+    const updated = await api.updateRecurringTransaction(id, data);
+    setRecurringTransactions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    return updated;
+  }, []);
+
+  const deleteRecurringTransaction = useCallback(async (id: string) => {
+    const success = await api.deleteRecurringTransaction(id);
+    if (success) {
+      setRecurringTransactions((prev) => prev.filter((r) => r.id !== id));
+    }
+    return success;
+  }, []);
+
   const updateSettings = useCallback(async (data: Partial<AppSettings>) => {
     const updated = await api.updateSettings(data);
     setSettings(updated);
@@ -369,6 +547,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         categorySpending,
         categoryIncome,
         monthlyTrends,
+        savingsGoals,
+        savingsTransactions,
+        savingsGoalsProgress,
+        savingsSummary,
+        budgets,
+        budgetStatus,
+        recurringTransactions,
+        insights,
         isLoading,
         isSyncing,
         syncStatus,
@@ -405,6 +591,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createCategory,
         updateCategory,
         deleteCategory,
+
+        createSavingsGoal,
+        updateSavingsGoal,
+        archiveSavingsGoal,
+        unarchiveSavingsGoal,
+        deleteSavingsGoal,
+
+        createSavingsTransaction,
+        deleteSavingsTransaction,
+
+        createBudget,
+        updateBudget,
+        deleteBudget,
+
+        createRecurringTransaction,
+        updateRecurringTransaction,
+        deleteRecurringTransaction,
 
         updateSettings,
         formatMoney,

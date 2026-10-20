@@ -14,6 +14,7 @@ export interface Transaction {
   description: string;
   transferToAccountId?: string;
   createdAt: string;
+  tags?: string[];
 }
 
 export interface Account {
@@ -84,3 +85,104 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
 }
+
+export type GoalStatus = 'active' | 'completed' | 'archived';
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  initialAmount: number;
+  targetDate?: string; // YYYY-MM-DD
+  description?: string;
+  icon?: string; // Lucide icon name
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  status: GoalStatus;
+}
+
+export type SavingsTransactionType = 'deposit' | 'withdraw';
+
+export interface SavingsTransaction {
+  id: string;
+  goalId: string;
+  type: SavingsTransactionType;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  notes?: string;
+  accountId?: string;
+  createdAt: string; // ISO date string
+}
+
+export interface SavingsGoalProgress extends SavingsGoal {
+  currentSaved: number;
+  remainingAmount: number;
+  progressPercentage: number;
+  computedStatus: GoalStatus;
+  totalDeposited: number;
+  totalWithdrawn: number;
+  transactionCount: number;
+}
+
+export interface SavingsSummary {
+  totalSaved: number;
+  activeGoalsCount: number;
+  completedGoalsCount: number;
+  archivedGoalsCount: number;
+  combinedTarget: number;
+  remainingToTarget: number;
+  overallProgressPercentage: number;
+}
+
+// ================= BUDGETS =================
+export interface Budget {
+  id: string;
+  category: string; // Category name or ID
+  monthlyLimit: number;
+  month: string; // YYYY-MM
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryBudgetStatus {
+  budget: Budget;
+  categoryName: string;
+  icon: string;
+  monthlyLimit: number;
+  currentSpent: number;
+  remaining: number;
+  percentage: number;
+  isWarning: boolean; // >= 80%
+  isOverBudget: boolean; // >= 100%
+}
+
+// ================= RECURRING & SUBSCRIPTIONS =================
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface RecurringTransaction {
+  id: string;
+  title: string;
+  amount: number;
+  type: TransactionType;
+  category?: string;
+  account: string;
+  frequency: RecurringFrequency;
+  nextDueDate: string; // YYYY-MM-DD
+  lastGeneratedDate?: string; // YYYY-MM-DD
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ================= INSIGHTS =================
+export interface InsightCardData {
+  id: string;
+  type: 'increase' | 'decrease' | 'milestone' | 'warning' | 'tip';
+  title: string;
+  description: string;
+  metric?: string;
+  category?: string;
+  dismissed?: boolean;
+}
+
+

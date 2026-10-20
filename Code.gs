@@ -20,17 +20,25 @@ var SHEET_NAMES = {
   ACCOUNTS: 'Accounts',
   CATEGORIES: 'Categories',
   SETTINGS: 'Settings',
-  PROCESSED_EMAILS: 'ProcessedEmails'
+  PROCESSED_EMAILS: 'ProcessedEmails',
+  SAVINGS_GOALS: 'SavingsGoals',
+  SAVINGS_TRANSACTIONS: 'SavingsTransactions',
+  BUDGETS: 'Budgets',
+  RECURRING: 'Recurring'
 };
 
 var HEADERS = {
   USERS: ['id', 'name', 'email', 'passwordSalt', 'passwordHash', 'role', 'active', 'createdAt'],
   SESSIONS: ['id', 'userId', 'tokenHash', 'active', 'createdAt'],
-  TRANSACTIONS: ['id', 'date', 'type', 'accountId', 'categoryId', 'amount', 'description', 'transferToAccountId', 'createdAt'],
+  TRANSACTIONS: ['id', 'date', 'type', 'accountId', 'categoryId', 'amount', 'description', 'transferToAccountId', 'createdAt', 'tags'],
   ACCOUNTS: ['id', 'name', 'type', 'openingBalance', 'currency', 'active'],
   CATEGORIES: ['id', 'name', 'type', 'icon', 'active'],
   SETTINGS: ['key', 'value'],
-  PROCESSED_EMAILS: ['messageId', 'subject', 'date', 'amount', 'status']
+  PROCESSED_EMAILS: ['messageId', 'subject', 'date', 'amount', 'status'],
+  SAVINGS_GOALS: ['id', 'name', 'targetAmount', 'initialAmount', 'targetDate', 'description', 'icon', 'createdAt', 'updatedAt', 'status'],
+  SAVINGS_TRANSACTIONS: ['id', 'goalId', 'type', 'amount', 'date', 'notes', 'accountId', 'createdAt'],
+  BUDGETS: ['id', 'category', 'monthlyLimit', 'month', 'createdAt', 'updatedAt'],
+  RECURRING: ['id', 'title', 'amount', 'type', 'category', 'account', 'frequency', 'nextDueDate', 'lastGeneratedDate', 'active', 'createdAt', 'updatedAt']
 };
 
 /**
@@ -518,21 +526,40 @@ function publicUser(user) {
 }
 
 function appUserSheetName(userId, suffix) {
-  if (String(userId) === 'owner') return SHEET_NAMES[suffix.toUpperCase()];
-  if (suffix === 'Transactions') {
-    return ('User_' + String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) + '_Transactions').slice(0, 99);
+  if (String(userId) === 'owner') {
+    if (suffix === 'SavingsGoals') return SHEET_NAMES.SAVINGS_GOALS;
+    if (suffix === 'SavingsTransactions') return SHEET_NAMES.SAVINGS_TRANSACTIONS;
+    if (suffix === 'Budgets') return SHEET_NAMES.BUDGETS;
+    if (suffix === 'Recurring') return SHEET_NAMES.RECURRING;
+    return SHEET_NAMES[suffix.toUpperCase()];
+  }
+  if (suffix === 'Transactions' || suffix === 'SavingsGoals' || suffix === 'SavingsTransactions' || suffix === 'Budgets' || suffix === 'Recurring') {
+    return ('User_' + String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) + '_' + suffix).slice(0, 99);
   }
   // Accounts, Categories, and Settings are shared across users — do not create duplicate per-user tabs!
   return SHEET_NAMES[suffix.toUpperCase()];
 }
 
 function ensureAppUserSheets(userId) {
-  [SHEET_NAMES.TRANSACTIONS, SHEET_NAMES.ACCOUNTS, SHEET_NAMES.CATEGORIES, SHEET_NAMES.SETTINGS].forEach(function(name) {
+  [
+    SHEET_NAMES.TRANSACTIONS,
+    SHEET_NAMES.ACCOUNTS,
+    SHEET_NAMES.CATEGORIES,
+    SHEET_NAMES.SETTINGS,
+    SHEET_NAMES.SAVINGS_GOALS,
+    SHEET_NAMES.SAVINGS_TRANSACTIONS,
+    SHEET_NAMES.BUDGETS,
+    SHEET_NAMES.RECURRING
+  ].forEach(function(name) {
     var key = Object.keys(SHEET_NAMES).find(function(k) { return SHEET_NAMES[k] === name; });
     getOrCreateSheet(name, HEADERS[key]);
   });
   if (String(userId) !== 'owner') {
     getOrCreateSheet(appUserSheetName(userId, 'Transactions'), HEADERS.TRANSACTIONS);
+    getOrCreateSheet(appUserSheetName(userId, 'SavingsGoals'), HEADERS.SAVINGS_GOALS);
+    getOrCreateSheet(appUserSheetName(userId, 'SavingsTransactions'), HEADERS.SAVINGS_TRANSACTIONS);
+    getOrCreateSheet(appUserSheetName(userId, 'Budgets'), HEADERS.BUDGETS);
+    getOrCreateSheet(appUserSheetName(userId, 'Recurring'), HEADERS.RECURRING);
   }
 }
 
@@ -545,18 +572,38 @@ function readAppUserData(userId) {
     transactions: getRowsAsObjects(appUserSheetName(userId, 'Transactions')),
     accounts: getRowsAsObjects(SHEET_NAMES.ACCOUNTS),
     categories: getRowsAsObjects(SHEET_NAMES.CATEGORIES),
-    settings: settings
+    settings: settings,
+    savingsGoals: getRowsAsObjects(appUserSheetName(userId, 'SavingsGoals')),
+    savingsTransactions: getRowsAsObjects(appUserSheetName(userId, 'SavingsTransactions')),
+    budgets: getRowsAsObjects(appUserSheetName(userId, 'Budgets')),
+    recurring: getRowsAsObjects(appUserSheetName(userId, 'Recurring'))
   };
 }
 
 function hasAppUserData(data) {
-  return Boolean(data && data.transactions && data.transactions.length > 0);
+  return Boolean(
+    (data && data.transactions && data.transactions.length > 0) ||
+    (data && data.savingsGoals && data.savingsGoals.length > 0) ||
+    (data && data.budgets && data.budgets.length > 0)
+  );
 }
 
 function writeAppUserData(userId, data) {
   ensureAppUserSheets(userId);
-  // Per-user data is only stored in Transactions
+  // Per-user data is stored in Transactions, SavingsGoals, SavingsTransactions, Budgets, Recurring
   replaceAppUserRows(appUserSheetName(userId, 'Transactions'), HEADERS.TRANSACTIONS, data.transactions || []);
+  if (data.savingsGoals) {
+    replaceAppUserRows(appUserSheetName(userId, 'SavingsGoals'), HEADERS.SAVINGS_GOALS, data.savingsGoals);
+  }
+  if (data.savingsTransactions) {
+    replaceAppUserRows(appUserSheetName(userId, 'SavingsTransactions'), HEADERS.SAVINGS_TRANSACTIONS, data.savingsTransactions);
+  }
+  if (data.budgets) {
+    replaceAppUserRows(appUserSheetName(userId, 'Budgets'), HEADERS.BUDGETS, data.budgets);
+  }
+  if (data.recurring) {
+    replaceAppUserRows(appUserSheetName(userId, 'Recurring'), HEADERS.RECURRING, data.recurring);
+  }
 
   // Only the owner can write changes directly into the shared Accounts, Categories, or Settings
   if (String(userId) === 'owner') {

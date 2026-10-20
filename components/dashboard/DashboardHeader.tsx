@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Plus, CalendarDays } from 'lucide-react';
+import { Plus, CalendarDays, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/context/AppContext';
 import { getCurrentAppUser, type AppUser } from '@/lib/api';
@@ -32,13 +32,16 @@ export function DashboardHeader() {
   const firstName = user?.name ? user.name.split(' ')[0] : '';
 
   return (
-    <div className="flex items-center justify-between gap-3 pb-3 sm:pb-6">
+    <div className="flex items-center justify-between gap-3 pb-2 sm:pb-4">
       <div>
-        <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-slate-900">
-          {getGreeting()}{firstName ? `, ${firstName}` : ''}
-        </h1>
-        <div className="flex items-center gap-1.5 mt-0.5 text-xs sm:text-sm text-slate-500 font-medium">
-          <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl sm:text-3xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            {getGreeting()}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <Sparkles className="w-4 h-4 text-violet-500 dark:text-violet-400 hidden sm:inline-block animate-pulse" />
+        </div>
+        <div className="flex items-center gap-1.5 mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+          <CalendarDays className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
           <span>{currentDate}</span>
         </div>
       </div>
@@ -48,7 +51,7 @@ export function DashboardHeader() {
           onClick={openAddTransaction}
           icon={Plus}
           size="md"
-          className="shadow-xs"
+          className="shadow-sm bg-gradient-to-r from-violet-600 via-indigo-600 to-teal-600 hover:from-violet-500 hover:to-teal-500 text-white font-medium border-0 cursor-pointer"
         >
           Add transaction
         </Button>

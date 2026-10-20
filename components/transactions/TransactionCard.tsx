@@ -48,16 +48,16 @@ export function TransactionCard({
   const isTransfer = tx.type === 'transfer';
 
   return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
+    <div className="bg-white dark:bg-slate-900/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
       {/* Top Row: Icon, Description, Amount */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div
             className={cn(
               'h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
-              isIncome && 'bg-emerald-50 border-emerald-200/80 text-emerald-700',
-              isExpense && 'bg-slate-100 border-slate-200/80 text-slate-700',
-              isTransfer && 'bg-indigo-50 border-indigo-200/80 text-indigo-700'
+              isIncome && 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300',
+              isExpense && 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50 text-rose-700 dark:text-rose-400',
+              isTransfer && 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200/80 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
             )}
           >
             {isTransfer ? (
@@ -68,10 +68,10 @@ export function TransactionCard({
           </div>
 
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-slate-900 truncate">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
               {tx.description || (isTransfer ? 'Transfer' : category?.name || 'Transaction')}
             </h4>
-            <p className="text-xs text-slate-500 font-medium">{formatShortDate(tx.date)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{formatShortDate(tx.date)}</p>
           </div>
         </div>
 
@@ -79,12 +79,12 @@ export function TransactionCard({
         <div
           className={cn(
             'flex items-center gap-1 font-bold text-sm shrink-0',
-            isIncome && 'text-emerald-600',
-            isExpense && 'text-slate-900',
-            isTransfer && 'text-indigo-600'
+            isIncome && 'text-emerald-600 dark:text-emerald-400',
+            isExpense && 'text-slate-900 dark:text-slate-100',
+            isTransfer && 'text-indigo-600 dark:text-indigo-400'
           )}
         >
-          {isIncome && <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />}
+          {isIncome && <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
           {isExpense && <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />}
           {isTransfer && <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-500" />}
           <span>
@@ -95,7 +95,7 @@ export function TransactionCard({
       </div>
 
       {/* Meta & Actions Row with Account Badges */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500 gap-2">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
           {isTransfer ? (
             <div className="flex items-center gap-1">
@@ -107,7 +107,7 @@ export function TransactionCard({
             <div className="flex items-center gap-1.5">
               <AccountBadge account={account} name={account?.name || 'Bank'} />
               {category && (
-                <span className="text-slate-400 font-medium">· {category.name}</span>
+                <span className="text-slate-400 dark:text-slate-500 font-medium">· {category.name}</span>
               )}
             </div>
           )}
@@ -118,14 +118,14 @@ export function TransactionCard({
           <button
             onClick={() => onEdit(tx)}
             aria-label="Edit transaction"
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
           >
             <Pencil className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(tx.id)}
             aria-label="Delete transaction"
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
           </button>

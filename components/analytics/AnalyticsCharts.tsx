@@ -40,15 +40,15 @@ import {
 import { cn } from '@/lib/utils';
 
 const COLORS = [
-  '#0f172a',
-  '#3b82f6',
-  '#f59e0b',
-  '#ec4899',
-  '#8b5cf6',
-  '#10b981',
-  '#06b6d4',
-  '#f97316',
-  '#64748b',
+  '#38bdf8', // Bright Sky Blue
+  '#34d399', // Mint Emerald
+  '#f43f5e', // Vibrant Rose
+  '#fbbf24', // Radiant Amber Gold
+  '#a855f7', // Vivid Purple
+  '#22d3ee', // Bright Electric Cyan
+  '#fb923c', // Tangerine Orange
+  '#f472b6', // Bright Pink
+  '#818cf8', // Electric Indigo
 ];
 
 interface AnalyticsChartsProps {
@@ -130,12 +130,12 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
-        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-md text-xs space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md text-xs space-y-1">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-slate-100">
             <CategoryIcon name={item.icon} className="w-3.5 h-3.5" />
             <span>{item.categoryName}</span>
           </div>
-          <p className="text-slate-600 font-medium">
+          <p className="text-slate-600 dark:text-slate-400 font-medium">
             {formatMoney(item.total)} ({item.percentage.toFixed(1)}%)
           </p>
         </div>
@@ -149,8 +149,8 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
       {/* Account Balances Section in Analytics */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-            <WalletCards className="w-4 h-4 text-slate-600" />
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <WalletCards className="w-4 h-4 text-slate-600 dark:text-slate-400" />
             <span>Account Holdings & Balances</span>
           </h3>
         </div>
@@ -171,42 +171,42 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                           className={cn(
                             'p-2 rounded-lg border shadow-2xs',
                             isBank
-                              ? 'bg-blue-50 text-blue-700 border-blue-200/80'
-                              : 'bg-purple-50 text-purple-700 border-purple-200/80'
+                              ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/60'
+                              : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/60'
                           )}
                         >
                           <Icon className="w-4 h-4" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-900">{acc.name}</h4>
-                          <span className="text-xs text-slate-500 capitalize">{acc.type}</span>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{acc.name}</h4>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">{acc.type}</span>
                         </div>
                       </div>
                       <AccountBadge account={acc} />
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
-                      <span className="text-xs text-slate-500 font-medium">Current Balance:</span>
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-baseline justify-between">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Current Balance:</span>
                       <span
                         className={cn(
                           'text-base font-bold',
-                          acc.currentBalance >= 0 ? 'text-slate-900' : 'text-rose-600'
+                          acc.currentBalance >= 0 ? 'text-slate-900 dark:text-slate-100' : 'text-rose-600 dark:text-rose-400'
                         )}
                       >
                         {formatMoney(acc.currentBalance)}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 text-slate-500">
-                      <div className="bg-slate-50 p-1.5 rounded">
-                        <span className="text-slate-400 block text-[10px]">Period Inflow:</span>
-                        <span className="font-semibold text-emerald-600">
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 text-slate-500 dark:text-slate-400">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded">
+                        <span className="text-slate-400 dark:text-slate-500 block text-[10px]">Period Inflow:</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                           +{formatMoney(flow.income + flow.transferIn)}
                         </span>
                       </div>
-                      <div className="bg-slate-50 p-1.5 rounded">
-                        <span className="text-slate-400 block text-[10px]">Period Outflow:</span>
-                        <span className="font-semibold text-rose-600">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded">
+                        <span className="text-slate-400 dark:text-slate-500 block text-[10px]">Period Outflow:</span>
+                        <span className="font-semibold text-rose-600 dark:text-rose-400">
                           -{formatMoney(flow.expense + flow.transferOut)}
                         </span>
                       </div>
@@ -219,7 +219,7 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
       </div>
 
       {/* Period Selector Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/80 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <Button
             variant={period === 'this-week' ? 'primary' : 'ghost'}
@@ -304,16 +304,16 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 Total Income
               </span>
-              <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60">
                 <ArrowDownLeft className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900">{formatMoney(totalIncome)}</div>
-              <p className="mt-1 text-xs text-slate-500">Earned in selected period</p>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatMoney(totalIncome)}</div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Earned in selected period</p>
             </div>
           </CardContent>
         </Card>
@@ -322,16 +322,16 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 Total Expenses
               </span>
-              <div className="p-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/80">
+              <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/60">
                 <ArrowUpRight className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900">{formatMoney(totalExpense)}</div>
-              <p className="mt-1 text-xs text-slate-500">Spent in selected period</p>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatMoney(totalExpense)}</div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Spent in selected period</p>
             </div>
           </CardContent>
         </Card>
@@ -340,18 +340,18 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 Net Savings
               </span>
-              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60">
                 <PiggyBank className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <div className={cn('text-2xl font-bold', netSavings >= 0 ? 'text-slate-900' : 'text-rose-600')}>
+              <div className={cn('text-2xl font-bold', netSavings >= 0 ? 'text-slate-900 dark:text-slate-100' : 'text-rose-600 dark:text-rose-400')}>
                 {formatMoney(netSavings)}
               </div>
-              <p className="mt-1 text-xs text-slate-500">Income minus expenses</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Income minus expenses</p>
             </div>
           </CardContent>
         </Card>
@@ -360,18 +360,18 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 Savings Rate
               </span>
-              <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
+              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
                 <Percent className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {savingsRate.toFixed(1)}%
               </div>
-              <p className="mt-1 text-xs text-slate-500">Of total income saved</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Of total income saved</p>
             </div>
           </CardContent>
         </Card>
@@ -396,6 +396,19 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Tooltip content={<CustomPieTooltip />} />
+                      {/* Visual track ring to prevent blending with dark card background */}
+                      <Pie
+                        data={[{ value: 1 }]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={76}
+                        fill="currentColor"
+                        className="text-slate-100 dark:text-slate-800/80"
+                        stroke="none"
+                        isAnimationActive={false}
+                        dataKey="value"
+                      />
                       <Pie
                         data={categoryExpenses}
                         cx="50%"
@@ -409,7 +422,9 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                           <Cell
                             key={`exp-${entry.categoryId}`}
                             fill={COLORS[index % COLORS.length]}
-                            stroke="none"
+                            stroke="currentColor"
+                            className="text-white dark:text-slate-900"
+                            strokeWidth={2}
                           />
                         ))}
                       </Pie>
@@ -417,7 +432,7 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                   </ResponsiveContainer>
                 </div>
 
-                <div className="space-y-2.5 pt-2 border-t border-slate-100 max-h-56 overflow-y-auto">
+                <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 max-h-56 overflow-y-auto">
                   {categoryExpenses.map((item, idx) => (
                     <div key={item.categoryId} className="space-y-1 text-xs">
                       <div className="flex items-center justify-between">
@@ -426,17 +441,17 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: COLORS[idx % COLORS.length] }}
                           />
-                          <CategoryIcon name={item.icon} className="w-3.5 h-3.5 text-slate-500" />
-                          <span className="font-medium text-slate-800">{item.categoryName}</span>
+                          <CategoryIcon name={item.icon} className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                          <span className="font-medium text-slate-800 dark:text-slate-200">{item.categoryName}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{formatMoney(item.total)}</span>
-                          <span className="text-slate-400 w-10 text-right font-medium">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{formatMoney(item.total)}</span>
+                          <span className="text-slate-400 dark:text-slate-500 w-10 text-right font-medium">
                             {item.percentage.toFixed(1)}%
                           </span>
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -470,6 +485,19 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Tooltip content={<CustomPieTooltip />} />
+                      {/* Visual track ring to prevent blending with dark card background */}
+                      <Pie
+                        data={[{ value: 1 }]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={76}
+                        fill="currentColor"
+                        className="text-slate-100 dark:text-slate-800/80"
+                        stroke="none"
+                        isAnimationActive={false}
+                        dataKey="value"
+                      />
                       <Pie
                         data={categoryIncomes}
                         cx="50%"
@@ -483,7 +511,9 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                           <Cell
                             key={`inc-${entry.categoryId}`}
                             fill={COLORS[index % COLORS.length]}
-                            stroke="none"
+                            stroke="currentColor"
+                            className="text-white dark:text-slate-900"
+                            strokeWidth={2}
                           />
                         ))}
                       </Pie>
@@ -491,7 +521,7 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                   </ResponsiveContainer>
                 </div>
 
-                <div className="space-y-2.5 pt-2 border-t border-slate-100 max-h-56 overflow-y-auto">
+                <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 max-h-56 overflow-y-auto">
                   {categoryIncomes.map((item, idx) => (
                     <div key={item.categoryId} className="space-y-1 text-xs">
                       <div className="flex items-center justify-between">
@@ -500,17 +530,17 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: COLORS[idx % COLORS.length] }}
                           />
-                          <CategoryIcon name={item.icon} className="w-3.5 h-3.5 text-slate-500" />
-                          <span className="font-medium text-slate-800">{item.categoryName}</span>
+                          <CategoryIcon name={item.icon} className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                          <span className="font-medium text-slate-800 dark:text-slate-200">{item.categoryName}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{formatMoney(item.total)}</span>
-                          <span className="text-slate-400 w-10 text-right font-medium">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{formatMoney(item.total)}</span>
+                          <span className="text-slate-400 dark:text-slate-500 w-10 text-right font-medium">
                             {item.percentage.toFixed(1)}%
                           </span>
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-emerald-500"
                           style={{ width: `${item.percentage}%` }}
@@ -540,26 +570,31 @@ export function AnalyticsCharts({ transactions, accounts, categories }: Analytic
                 barGap={6}
                 barSize={16}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />
                 <XAxis
                   dataKey="monthLabel"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
                   tickFormatter={(val) => `${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
                 />
                 <Tooltip
                   formatter={(val: any) => formatMoney(Number(val))}
                   contentStyle={{
-                    borderRadius: '8px',
-                    borderColor: '#e2e8f0',
+                    borderRadius: '10px',
+                    borderColor: '#334155',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    color: '#f8fafc',
                     fontSize: '12px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
                   }}
+                  itemStyle={{ color: '#f8fafc' }}
+                  labelStyle={{ color: '#94a3b8', fontWeight: 600 }}
                 />
                 <Legend
                   verticalAlign="top"

@@ -56,6 +56,12 @@ import {
   ChevronDown,
   Check,
   Clock,
+  Target,
+  Coins,
+  Sparkles,
+  ShieldCheck,
+  Gem,
+  Trophy,
   LucideIcon
 } from 'lucide-react';
 
@@ -119,6 +125,12 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   Tv,
   Store,
   DollarSign,
+  Target,
+  Coins,
+  Sparkles,
+  ShieldCheck,
+  Gem,
+  Trophy,
 };
 
 // Available icons selectable for categories
@@ -147,6 +159,26 @@ export const AVAILABLE_CATEGORY_ICONS = [
   { name: 'HelpCircle', label: 'General / Other' },
 ];
 
+// Available icons selectable for savings goals (no emojis)
+export const AVAILABLE_SAVINGS_ICONS = [
+  { name: 'PiggyBank', label: 'General Savings' },
+  { name: 'Target', label: 'Goal Milestone' },
+  { name: 'Coins', label: 'Emergency Fund' },
+  { name: 'Car', label: 'Vehicle / Transport' },
+  { name: 'Home', label: 'House / Property' },
+  { name: 'Plane', label: 'Travel & Vacation' },
+  { name: 'GraduationCap', label: 'Education' },
+  { name: 'Laptop', label: 'Gadget / Tech' },
+  { name: 'Sparkles', label: 'Dream Purchase' },
+  { name: 'Gift', label: 'Gifts & Celebration' },
+  { name: 'Gem', label: 'Luxury & Jewelry' },
+  { name: 'Trophy', label: 'Major Milestone' },
+  { name: 'HeartPulse', label: 'Health Fund' },
+  { name: 'TrendingUp', label: 'Investment & Wealth' },
+  { name: 'ShieldCheck', label: 'Security & Safety' },
+  { name: 'Landmark', label: 'Bank / Reserve' },
+];
+
 export function getIconComponent(iconName?: string): LucideIcon {
   if (!iconName) return HelpCircle;
   return ICON_MAP[iconName] || HelpCircle;
@@ -162,3 +194,15 @@ export function CategoryIcon({
   const Icon = getIconComponent(name);
   return React.createElement(Icon, { className });
 }
+
+export function SavingsGoalIcon({
+  name,
+  className = 'w-4 h-4',
+}: {
+  name?: string;
+  className?: string;
+}) {
+  const Icon = getIconComponent(name || 'PiggyBank');
+  return React.createElement(Icon, { className });
+}
+

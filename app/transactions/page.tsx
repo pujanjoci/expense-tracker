@@ -10,7 +10,9 @@ import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
 import { TableSkeleton } from '@/components/common/LoadingState';
-import { ArrowLeftRight, Plus, Download, UploadCloud } from 'lucide-react';
+import { StatementImportModal } from '@/components/transactions/StatementImportModal';
+import { exportTransactionsPDF } from '@/lib/exportPdf';
+import { ArrowLeftRight, Plus, Download, UploadCloud, FileDown } from 'lucide-react';
 import { Transaction } from '@/types';
 
 export default function TransactionsPage() {
@@ -32,23 +34,40 @@ export default function TransactionsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedAccountId, setSelectedAccountId] = useState('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedTag, setSelectedTag] = useState('all');
   const [sortBy, setSortBy] = useState('date-desc');
 
   // Deletion Dialog State
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Statement Import Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Collect all unique tags across transactions
+  const availableTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    transactions.forEach((tx) => {
+      if (tx.tags && Array.isArray(tx.tags)) {
+        tx.tags.forEach((t) => tagsSet.add(t));
+      }
+    });
+    return Array.from(tagsSet);
+  }, [transactions]);
+
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     selectedType !== 'all' ||
     selectedAccountId !== 'all' ||
-    selectedCategoryId !== 'all';
+    selectedCategoryId !== 'all' ||
+    selectedTag !== 'all';
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedType('all');
     setSelectedAccountId('all');
     setSelectedCategoryId('all');
+    setSelectedTag('all');
     setSortBy('date-desc');
   };
 
@@ -64,7 +83,8 @@ export default function TransactionsPage() {
           const matchCat = (category?.name || '').toLowerCase().includes(q);
           const account = accounts.find((a) => a.id === tx.accountId);
           const matchAcc = (account?.name || '').toLowerCase().includes(q);
-          if (!matchDesc && !matchCat && !matchAcc) return false;
+          const matchTags = tx.tags?.some((t) => t.toLowerCase().includes(q));
+          if (!matchDesc && !matchCat && !matchAcc && !matchTags) return false;
         }
 
         // Type filter
@@ -84,6 +104,13 @@ export default function TransactionsPage() {
           return false;
         }
 
+        // Tag filter
+        if (selectedTag !== 'all') {
+          if (!tx.tags || !tx.tags.includes(selectedTag)) {
+            return false;
+          }
+        }
+
         return true;
       })
       .sort((a, b) => {
@@ -101,7 +128,17 @@ export default function TransactionsPage() {
         }
         return 0;
       });
-  }, [transactions, searchQuery, selectedType, selectedAccountId, selectedCategoryId, sortBy, categories, accounts]);
+  }, [
+    transactions,
+    searchQuery,
+    selectedType,
+    selectedAccountId,
+    selectedCategoryId,
+    selectedTag,
+    sortBy,
+    categories,
+    accounts,
+  ]);
 
   const handleDeleteConfirm = async () => {
     if (!deletingId) return;
@@ -116,7 +153,7 @@ export default function TransactionsPage() {
 
   const exportCSV = () => {
     if (filteredTransactions.length === 0) return;
-    const headers = ['Date', 'Type', 'Amount', 'Account', 'Category', 'Description'];
+    const headers = ['Date', 'Type', 'Amount', 'Account', 'Category', 'Description', 'Tags'];
     const rows = filteredTransactions.map((tx) => {
       const acc = accounts.find((a) => a.id === tx.accountId)?.name || tx.accountId;
       const cat = categories.find((c) => c.id === tx.categoryId)?.name || '';
@@ -127,6 +164,7 @@ export default function TransactionsPage() {
         `"${acc}"`,
         `"${cat}"`,
         `"${(tx.description || '').replace(/"/g, '""')}"`,
+        `"${(tx.tags || []).join(';')}"`,
       ];
     });
 
@@ -141,12 +179,21 @@ export default function TransactionsPage() {
     document.body.removeChild(link);
   };
 
+  const exportPDF = () => {
+    exportTransactionsPDF({
+      transactions: filteredTransactions,
+      accounts,
+      categories,
+      currencySymbol: settings.currencySymbol || 'Rs.',
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Page Header */}
       <PageHeader
         title="Transactions"
-        description="View, search, filter, and manage your income and expenses"
+        description="View, search, filter, and manage your income, expenses, and bank imports"
         icon={ArrowLeftRight}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -156,33 +203,54 @@ export default function TransactionsPage() {
                 size="sm"
                 onClick={() => syncBankEmails()}
                 isLoading={isSyncing}
-                className="bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 cursor-pointer"
               >
                 Sync Bank Emails
               </Button>
             )}
+
             {transactions.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Download}
-                onClick={exportCSV}
-                title="Export filtered transactions as CSV"
-              >
-                Export CSV
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={Download}
+                  onClick={exportCSV}
+                  title="Export filtered transactions as CSV"
+                  className="cursor-pointer"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={FileDown}
+                  onClick={exportPDF}
+                  title="Export styled PDF report"
+                  className="cursor-pointer text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                >
+                  Export PDF
+                </Button>
+              </>
             )}
+
             <Button
               variant="outline"
               size="sm"
               icon={UploadCloud}
-              onClick={openAddTransaction}
-              title="Import bank statement (CSV or PDF)"
-              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              onClick={() => setIsImportModalOpen(true)}
+              title="Import bank statement CSV"
+              className="text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 cursor-pointer"
             >
               Import Statement
             </Button>
-            <Button size="sm" icon={Plus} onClick={openAddTransaction}>
+
+            <Button
+              size="sm"
+              icon={Plus}
+              onClick={openAddTransaction}
+              className="bg-violet-600 hover:bg-violet-500 text-white cursor-pointer shadow-xs"
+            >
               Add Transaction
             </Button>
           </div>
@@ -199,10 +267,13 @@ export default function TransactionsPage() {
         onAccountChange={setSelectedAccountId}
         selectedCategoryId={selectedCategoryId}
         onCategoryChange={setSelectedCategoryId}
+        selectedTag={selectedTag}
+        onTagChange={setSelectedTag}
         sortBy={sortBy}
         onSortChange={setSortBy}
         accounts={accounts}
         categories={categories}
+        availableTags={availableTags}
         onReset={handleResetFilters}
         hasActiveFilters={hasActiveFilters}
       />
@@ -224,6 +295,10 @@ export default function TransactionsPage() {
         />
       ) : (
         <div className="space-y-4">
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>Showing {filteredTransactions.length} of {transactions.length} transactions</span>
+          </div>
+
           {/* Desktop Table View */}
           <div className="hidden md:block">
             <TransactionTable
@@ -235,8 +310,8 @@ export default function TransactionsPage() {
             />
           </div>
 
-          {/* Mobile Cards View */}
-          <div className="md:hidden space-y-3">
+          {/* Mobile Card List View */}
+          <div className="md:hidden space-y-2.5">
             {filteredTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
@@ -248,14 +323,6 @@ export default function TransactionsPage() {
               />
             ))}
           </div>
-
-          {/* Summary footer */}
-          <div className="flex items-center justify-between px-2 text-xs text-slate-500 font-medium">
-            <span>
-              Showing {filteredTransactions.length} of {transactions.length} transaction
-              {transactions.length === 1 ? '' : 's'}
-            </span>
-          </div>
         </div>
       )}
 
@@ -265,9 +332,16 @@ export default function TransactionsPage() {
         onClose={() => setDeletingId(null)}
         onConfirm={handleDeleteConfirm}
         title="Delete Transaction"
-        description="Are you sure you want to delete this transaction? This action cannot be undone and will update your dynamic account balances."
+        description="Are you sure you want to delete this transaction? This will permanently recalculate account balances."
         confirmLabel="Delete"
+        isDestructive={true}
         isLoading={isDeleting}
+      />
+
+      {/* Statement Import Modal */}
+      <StatementImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
       />
     </div>
   );

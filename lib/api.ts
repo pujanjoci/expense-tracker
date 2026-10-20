@@ -1,4 +1,4 @@
-import { Transaction, Account, Category, AppSettings, ApiResponse } from '@/types';
+import { Transaction, Account, Category, AppSettings, ApiResponse, SavingsGoal, SavingsTransaction, Budget, RecurringTransaction } from '@/types';
 import { INITIAL_ACCOUNTS, INITIAL_CATEGORIES, INITIAL_TRANSACTIONS, DEFAULT_SETTINGS } from './seedData';
 
 const LOCAL_STORAGE_KEYS = {
@@ -6,6 +6,10 @@ const LOCAL_STORAGE_KEYS = {
   ACCOUNTS: 'expense_tracker_accounts',
   CATEGORIES: 'expense_tracker_categories',
   SETTINGS: 'expense_tracker_settings',
+  SAVINGS_GOALS: 'expense_tracker_savings_goals',
+  SAVINGS_TRANSACTIONS: 'expense_tracker_savings_transactions',
+  BUDGETS: 'expense_tracker_budgets',
+  RECURRING: 'expense_tracker_recurring',
   SHEETS_URL: 'expense_tracker_sheets_url',
   APP_USER: 'expense_tracker_app_user',
   DIRTY: 'expense_tracker_sync_dirty',
@@ -236,47 +240,37 @@ export function initLocalData() {
   if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.SETTINGS))) {
     setLocalItem(LOCAL_STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   }
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.SAVINGS_GOALS))) {
+    setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+  }
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS))) {
+    setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []);
+  }
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.BUDGETS))) {
+    setLocalItem(LOCAL_STORAGE_KEYS.BUDGETS, []);
+  }
+  if (!localStorage.getItem(scopedStorageKey(LOCAL_STORAGE_KEYS.RECURRING))) {
+    setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, []);
+  }
 }
 
 // Remote API caller
 async function callGoogleScriptApi<T>(action: string, payload?: any): Promise<ApiResponse<T>> {
-  const url = getGoogleAppsScriptUrl();
-  if (!url) {
-    throw new Error('Google Apps Script URL not configured');
-  }
-
-  if (!['registerUser', 'login', 'syncUserData', 'syncBankEmails', 'logout', 'ping'].includes(action)) {
-    return { success: false, error: 'This legacy API action is disabled.' };
-  }
-
   try {
-    // For reads (GET) or when payload is small
-    if (!payload || Object.keys(payload).length === 0) {
-      const fetchUrl = `${url}?action=${encodeURIComponent(action)}&t=${Date.now()}`;
-      const res = await fetch(fetchUrl, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      const data = await res.json();
-      return data;
-    }
-
-    // For writes (POST)
-    const res = await fetch(url, {
+    const res = await fetch('/api/sheets', {
       method: 'POST',
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ action, ...payload }),
     });
-
     const data = await res.json();
     return data;
   } catch (err: any) {
-    console.error(`Google Apps Script API Error [${action}]:`, err);
+    console.error(`Google Sheets Server Route API Error [${action}]:`, err);
     return {
       success: false,
-      error: err.message || 'Network request to Google Apps Script failed',
+      error: err.message || 'Server request to Google Sheets failed',
     };
   }
 }
@@ -287,6 +281,10 @@ function createInitialUserData() {
     accounts: INITIAL_ACCOUNTS,
     categories: INITIAL_CATEGORIES,
     settings: DEFAULT_SETTINGS,
+    savingsGoals: [],
+    savingsTransactions: [],
+    budgets: [],
+    recurring: [],
   };
 }
 
@@ -298,6 +296,10 @@ function applyRemoteUserData(data: any) {
     setLocalItem(LOCAL_STORAGE_KEYS.ACCOUNTS, Array.isArray(data.accounts) ? data.accounts : INITIAL_ACCOUNTS);
     setLocalItem(LOCAL_STORAGE_KEYS.CATEGORIES, Array.isArray(data.categories) ? data.categories : INITIAL_CATEGORIES);
     setLocalItem(LOCAL_STORAGE_KEYS.SETTINGS, { ...DEFAULT_SETTINGS, ...(data.settings || {}) });
+    setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, Array.isArray(data.savingsGoals) ? data.savingsGoals : []);
+    setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, Array.isArray(data.savingsTransactions) ? data.savingsTransactions : []);
+    setLocalItem(LOCAL_STORAGE_KEYS.BUDGETS, Array.isArray(data.budgets) ? data.budgets : []);
+    setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, Array.isArray(data.recurring) ? data.recurring : []);
     const dirtyKey = scopedStorageKey(LOCAL_STORAGE_KEYS.DIRTY);
     localStorage.removeItem(dirtyKey);
   } finally {
@@ -333,6 +335,8 @@ export interface LocalOfflineDataSummary {
     accounts: Account[];
     categories: Category[];
     settings: AppSettings;
+    savingsGoals: SavingsGoal[];
+    savingsTransactions: SavingsTransaction[];
   };
 }
 
@@ -346,6 +350,8 @@ export function getLocalOfflineDataSummary(): LocalOfflineDataSummary {
         accounts: INITIAL_ACCOUNTS,
         categories: INITIAL_CATEGORIES,
         settings: DEFAULT_SETTINGS,
+        savingsGoals: [],
+        savingsTransactions: [],
       },
     };
   }
@@ -355,17 +361,23 @@ export function getLocalOfflineDataSummary(): LocalOfflineDataSummary {
     const rawAcc = localStorage.getItem(LOCAL_STORAGE_KEYS.ACCOUNTS);
     const rawCat = localStorage.getItem(LOCAL_STORAGE_KEYS.CATEGORIES);
     const rawSet = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
+    const rawGoals = localStorage.getItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS);
+    const rawStx = localStorage.getItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS);
 
     const transactions: Transaction[] = rawTx ? JSON.parse(rawTx) : [];
     const accounts: Account[] = rawAcc ? JSON.parse(rawAcc) : INITIAL_ACCOUNTS;
     const categories: Category[] = rawCat ? JSON.parse(rawCat) : INITIAL_CATEGORIES;
     const settings: AppSettings = rawSet ? JSON.parse(rawSet) : DEFAULT_SETTINGS;
+    const savingsGoals: SavingsGoal[] = rawGoals ? JSON.parse(rawGoals) : [];
+    const savingsTransactions: SavingsTransaction[] = rawStx ? JSON.parse(rawStx) : [];
 
     const txList = Array.isArray(transactions) ? transactions : [];
     const accList = Array.isArray(accounts) ? accounts : INITIAL_ACCOUNTS;
     const catList = Array.isArray(categories) ? categories : INITIAL_CATEGORIES;
+    const goalList = Array.isArray(savingsGoals) ? savingsGoals : [];
+    const stxList = Array.isArray(savingsTransactions) ? savingsTransactions : [];
 
-    const hasData = txList.length > 0 || accList.length > INITIAL_ACCOUNTS.length || catList.length > INITIAL_CATEGORIES.length;
+    const hasData = txList.length > 0 || accList.length > INITIAL_ACCOUNTS.length || catList.length > INITIAL_CATEGORIES.length || goalList.length > 0;
 
     return {
       hasData,
@@ -375,6 +387,8 @@ export function getLocalOfflineDataSummary(): LocalOfflineDataSummary {
         accounts: accList,
         categories: catList,
         settings: settings || DEFAULT_SETTINGS,
+        savingsGoals: goalList,
+        savingsTransactions: stxList,
       },
     };
   } catch {
@@ -386,6 +400,8 @@ export function getLocalOfflineDataSummary(): LocalOfflineDataSummary {
         accounts: INITIAL_ACCOUNTS,
         categories: INITIAL_CATEGORIES,
         settings: DEFAULT_SETTINGS,
+        savingsGoals: [],
+        savingsTransactions: [],
       },
     };
   }
@@ -398,6 +414,8 @@ export function clearLocalOfflineData(): void {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.ACCOUNTS);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.CATEGORIES);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.SETTINGS);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS);
   } catch {
     // Ignore storage errors
   }
@@ -456,6 +474,10 @@ export async function syncCurrentUserData(direction?: 'pull' | 'push'): Promise<
     accounts: getLocalItem<Account[]>(LOCAL_STORAGE_KEYS.ACCOUNTS, INITIAL_ACCOUNTS),
     categories: getLocalItem<Category[]>(LOCAL_STORAGE_KEYS.CATEGORIES, INITIAL_CATEGORIES),
     settings: getLocalItem<AppSettings>(LOCAL_STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS),
+    savingsGoals: getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []),
+    savingsTransactions: getLocalItem<SavingsTransaction[]>(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []),
+    budgets: getLocalItem<Budget[]>(LOCAL_STORAGE_KEYS.BUDGETS, []),
+    recurring: getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []),
   };
   const result = await callGoogleScriptApi<{ userData: any }>('syncUserData', {
     sessionToken: currentUser.sessionToken,
@@ -899,3 +921,297 @@ export async function syncBankEmails(): Promise<{ success: boolean; importedCoun
     };
   }
 }
+
+// ==================== SAVINGS GOALS API ====================
+
+export async function getSavingsGoals(): Promise<SavingsGoal[]> {
+  initLocalData();
+  return getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+}
+
+export async function createSavingsGoal(
+  goal: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string; updatedAt?: string }
+): Promise<SavingsGoal> {
+  initLocalData();
+  const now = new Date().toISOString();
+  const newGoal: SavingsGoal = {
+    ...goal,
+    id: goal.id || `goal-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    createdAt: goal.createdAt || now,
+    updatedAt: goal.updatedAt || now,
+    status: goal.status || 'active',
+  };
+
+  const current = getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+  const updated = [newGoal, ...current];
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, updated);
+  return newGoal;
+}
+
+export async function updateSavingsGoal(
+  id: string,
+  updates: Partial<SavingsGoal>
+): Promise<SavingsGoal> {
+  initLocalData();
+  const current = getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+  let updatedGoal: SavingsGoal | null = null;
+  const now = new Date().toISOString();
+
+  const updatedList = current.map((g) => {
+    if (g.id === id) {
+      updatedGoal = { ...g, ...updates, updatedAt: now };
+      return updatedGoal;
+    }
+    return g;
+  });
+
+  if (!updatedGoal) throw new Error(`Savings Goal ${id} not found`);
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, updatedList);
+  return updatedGoal;
+}
+
+export async function deleteSavingsGoal(id: string): Promise<boolean> {
+  initLocalData();
+  const currentGoals = getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, currentGoals.filter((g) => g.id !== id));
+
+  // Also clean up any transactions belonging to this goal
+  const currentStx = getLocalItem<SavingsTransaction[]>(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []);
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, currentStx.filter((tx) => tx.goalId !== id));
+  return true;
+}
+
+// ==================== SAVINGS TRANSACTIONS API ====================
+
+export async function getSavingsTransactions(): Promise<SavingsTransaction[]> {
+  initLocalData();
+  return getLocalItem<SavingsTransaction[]>(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []);
+}
+
+export async function createSavingsTransaction(
+  transaction: Omit<SavingsTransaction, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
+): Promise<SavingsTransaction> {
+  initLocalData();
+  const newTx: SavingsTransaction = {
+    ...transaction,
+    id: transaction.id || `stx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    createdAt: transaction.createdAt || new Date().toISOString(),
+  };
+
+  const current = getLocalItem<SavingsTransaction[]>(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []);
+  const updated = [newTx, ...current];
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, updated);
+
+  // Touch the goal's updatedAt timestamp
+  try {
+    const goals = getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+    const updatedGoals = goals.map((g) =>
+      g.id === newTx.goalId ? { ...g, updatedAt: new Date().toISOString() } : g
+    );
+    setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, updatedGoals);
+  } catch (err) {
+    console.warn('Could not update goal timestamp:', err);
+  }
+
+  return newTx;
+}
+
+export async function deleteSavingsTransaction(id: string): Promise<boolean> {
+  initLocalData();
+  const current = getLocalItem<SavingsTransaction[]>(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, []);
+  const target = current.find((tx) => tx.id === id);
+  const updated = current.filter((tx) => tx.id !== id);
+  setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_TRANSACTIONS, updated);
+
+  if (target) {
+    try {
+      const goals = getLocalItem<SavingsGoal[]>(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, []);
+      const updatedGoals = goals.map((g) =>
+        g.id === target.goalId ? { ...g, updatedAt: new Date().toISOString() } : g
+      );
+      setLocalItem(LOCAL_STORAGE_KEYS.SAVINGS_GOALS, updatedGoals);
+    } catch (err) {
+      console.warn('Could not update goal timestamp:', err);
+    }
+  }
+
+  return true;
+}
+
+// ==================== BUDGETS API ====================
+
+export async function getBudgets(): Promise<Budget[]> {
+  initLocalData();
+  return getLocalItem<Budget[]>(LOCAL_STORAGE_KEYS.BUDGETS, []);
+}
+
+export async function createBudget(
+  budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string; updatedAt?: string }
+): Promise<Budget> {
+  initLocalData();
+  const now = new Date().toISOString();
+  const newBudget: Budget = {
+    ...budget,
+    id: budget.id || `bgt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    createdAt: budget.createdAt || now,
+    updatedAt: budget.updatedAt || now,
+  };
+
+  const current = getLocalItem<Budget[]>(LOCAL_STORAGE_KEYS.BUDGETS, []);
+  const updated = [newBudget, ...current];
+  setLocalItem(LOCAL_STORAGE_KEYS.BUDGETS, updated);
+  return newBudget;
+}
+
+export async function updateBudget(
+  id: string,
+  updates: Partial<Budget>
+): Promise<Budget> {
+  initLocalData();
+  const current = getLocalItem<Budget[]>(LOCAL_STORAGE_KEYS.BUDGETS, []);
+  let updatedBudget: Budget | null = null;
+  const now = new Date().toISOString();
+
+  const updatedList = current.map((b) => {
+    if (b.id === id) {
+      updatedBudget = { ...b, ...updates, updatedAt: now };
+      return updatedBudget;
+    }
+    return b;
+  });
+
+  if (!updatedBudget) throw new Error(`Budget ${id} not found`);
+  setLocalItem(LOCAL_STORAGE_KEYS.BUDGETS, updatedList);
+  return updatedBudget;
+}
+
+export async function deleteBudget(id: string): Promise<boolean> {
+  initLocalData();
+  const current = getLocalItem<Budget[]>(LOCAL_STORAGE_KEYS.BUDGETS, []);
+  setLocalItem(LOCAL_STORAGE_KEYS.BUDGETS, current.filter((b) => b.id !== id));
+  return true;
+}
+
+// ==================== RECURRING TRANSACTIONS API ====================
+
+export async function getRecurringTransactions(): Promise<RecurringTransaction[]> {
+  initLocalData();
+  return getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []);
+}
+
+export async function createRecurringTransaction(
+  recurring: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string; updatedAt?: string }
+): Promise<RecurringTransaction> {
+  initLocalData();
+  const now = new Date().toISOString();
+  const newRec: RecurringTransaction = {
+    ...recurring,
+    id: recurring.id || `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    createdAt: recurring.createdAt || now,
+    updatedAt: recurring.updatedAt || now,
+    active: recurring.active !== undefined ? recurring.active : true,
+  };
+
+  const current = getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []);
+  const updated = [newRec, ...current];
+  setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, updated);
+  return newRec;
+}
+
+export async function updateRecurringTransaction(
+  id: string,
+  updates: Partial<RecurringTransaction>
+): Promise<RecurringTransaction> {
+  initLocalData();
+  const current = getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []);
+  let updatedRec: RecurringTransaction | null = null;
+  const now = new Date().toISOString();
+
+  const updatedList = current.map((r) => {
+    if (r.id === id) {
+      updatedRec = { ...r, ...updates, updatedAt: now };
+      return updatedRec;
+    }
+    return r;
+  });
+
+  if (!updatedRec) throw new Error(`Recurring Transaction ${id} not found`);
+  setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, updatedList);
+  return updatedRec;
+}
+
+export async function deleteRecurringTransaction(id: string): Promise<boolean> {
+  initLocalData();
+  const current = getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []);
+  setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, current.filter((r) => r.id !== id));
+  return true;
+}
+
+/**
+ * Idempotently generates due transactions from active recurring definitions
+ */
+export async function processDueRecurringTransactions(): Promise<number> {
+  initLocalData();
+  const recurringList = getLocalItem<RecurringTransaction[]>(LOCAL_STORAGE_KEYS.RECURRING, []);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let generatedCount = 0;
+
+  const currentTxs = getLocalItem<Transaction[]>(LOCAL_STORAGE_KEYS.TRANSACTIONS, []);
+  const newTxs: Transaction[] = [];
+
+  const updatedRecurring = recurringList.map((rec) => {
+    if (!rec.active) return rec;
+
+    // Check if nextDueDate is on or before today, and not already generated for this due date
+    if (rec.nextDueDate <= todayStr && rec.lastGeneratedDate !== rec.nextDueDate) {
+      const txId = `tx-rec-${rec.id}-${rec.nextDueDate}`;
+      const alreadyExists = currentTxs.some((t) => t.id === txId);
+
+      if (!alreadyExists) {
+        newTxs.push({
+          id: txId,
+          date: rec.nextDueDate,
+          type: rec.type,
+          accountId: rec.account,
+          categoryId: rec.category,
+          amount: rec.amount,
+          description: `${rec.title} (Auto-recurring)`,
+          createdAt: new Date().toISOString(),
+          tags: ['recurring'],
+        });
+        generatedCount++;
+      }
+
+      // Calculate next due date
+      const dueDate = new Date(rec.nextDueDate);
+      if (rec.frequency === 'daily') {
+        dueDate.setDate(dueDate.getDate() + 1);
+      } else if (rec.frequency === 'weekly') {
+        dueDate.setDate(dueDate.getDate() + 7);
+      } else if (rec.frequency === 'monthly') {
+        dueDate.setMonth(dueDate.getMonth() + 1);
+      } else if (rec.frequency === 'yearly') {
+        dueDate.setFullYear(dueDate.getFullYear() + 1);
+      }
+
+      const nextDueStr = dueDate.toISOString().slice(0, 10);
+      return {
+        ...rec,
+        lastGeneratedDate: rec.nextDueDate,
+        nextDueDate: nextDueStr,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return rec;
+  });
+
+  if (generatedCount > 0) {
+    setLocalItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, [...newTxs, ...currentTxs]);
+    setLocalItem(LOCAL_STORAGE_KEYS.RECURRING, updatedRecurring);
+  }
+
+  return generatedCount;
+}
+
+

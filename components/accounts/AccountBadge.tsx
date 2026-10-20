@@ -19,14 +19,14 @@ export function AccountBadge({ account, name, type, className }: AccountBadgePro
   const isCash = accountType === 'cash' || /cash/i.test(accountName);
 
   let Icon = Building2;
-  let bgClass = 'bg-blue-50/80 text-blue-700 border-blue-200/80';
+  let bgClass = 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/60';
 
   if (isWallet) {
     Icon = Smartphone;
-    bgClass = 'bg-purple-50/80 text-purple-700 border-purple-200/80';
+    bgClass = 'bg-purple-50/80 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/60';
   } else if (isCash) {
     Icon = Banknote;
-    bgClass = 'bg-amber-50/80 text-amber-700 border-amber-200/80';
+    bgClass = 'bg-amber-50/80 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60';
   }
 
   return (

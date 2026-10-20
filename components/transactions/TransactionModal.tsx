@@ -52,6 +52,7 @@ export function TransactionModal() {
   const [categoryId, setCategoryId] = useState<string>('');
   const [transferToAccountId, setTransferToAccountId] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [tags, setTags] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,6 +80,7 @@ export function TransactionModal() {
       setCategoryId(editingTransaction.categoryId || '');
       setTransferToAccountId(editingTransaction.transferToAccountId || '');
       setDescription(editingTransaction.description || '');
+      setTags(editingTransaction.tags ? editingTransaction.tags.join(', ') : '');
     } else {
       setType('expense');
       setAmount('');
@@ -87,6 +89,7 @@ export function TransactionModal() {
       setCategoryId(activeCategories[0]?.id || '');
       setTransferToAccountId(activeAccounts[1]?.id || '');
       setDescription('');
+      setTags('');
       setImportAccountId(activeAccounts[0]?.id || '');
       setParsedItems([]);
       setImportFileName('');
@@ -152,6 +155,12 @@ export function TransactionModal() {
         categoryId: type === 'transfer' ? undefined : categoryId,
         transferToAccountId: type === 'transfer' ? transferToAccountId : undefined,
         description: description.trim() || (type === 'transfer' ? 'Transfer' : 'Transaction'),
+        tags: tags
+          ? tags
+              .split(',')
+              .map((t) => t.trim().toLowerCase())
+              .filter(Boolean)
+          : [],
       };
 
       if (editingTransaction) {
@@ -263,15 +272,15 @@ export function TransactionModal() {
     >
       {/* Top Tabs: Manual vs Import (Only when creating new transaction) */}
       {!editingTransaction && (
-        <div className="flex border-b border-slate-200/80 mb-4 pb-2 gap-2">
+        <div className="flex border-b border-slate-200/80 dark:border-slate-800 mb-4 pb-2 gap-2">
           <button
             type="button"
             onClick={() => setModalTab('manual')}
             className={cn(
               'flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
               modalTab === 'manual'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
             )}
           >
             <Edit3 className="w-3.5 h-3.5" />
@@ -285,7 +294,7 @@ export function TransactionModal() {
               'flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
               modalTab === 'import'
                 ? 'bg-indigo-600 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
             )}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -305,19 +314,19 @@ export function TransactionModal() {
 
           {/* Type Selector Tabs */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-700">Transaction Type</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200/80">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Transaction Type</label>
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200/80 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => handleTypeChange('expense')}
                 className={cn(
                   'flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer',
                   type === 'expense'
-                    ? 'bg-white text-rose-700 shadow-2xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 shadow-2xs font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 )}
               >
-                <ArrowUpRight className="w-3.5 h-3.5 text-rose-600" />
+                <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>Expense</span>
               </button>
               <button
@@ -326,11 +335,11 @@ export function TransactionModal() {
                 className={cn(
                   'flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer',
                   type === 'income'
-                    ? 'bg-white text-emerald-700 shadow-2xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-2xs font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 )}
               >
-                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Income</span>
               </button>
               <button
@@ -339,11 +348,11 @@ export function TransactionModal() {
                 className={cn(
                   'flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer',
                   type === 'transfer'
-                    ? 'bg-white text-indigo-700 shadow-2xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 )}
               >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>Transfer</span>
               </button>
             </div>
@@ -450,8 +459,16 @@ export function TransactionModal() {
             onChange={(e) => setDescription(e.target.value)}
           />
 
+          {/* Tags */}
+          <Input
+            label="Tags (Optional)"
+            placeholder="e.g. food, trip-to-pokhara, tax-deductible (comma-separated)"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+
           {/* Form Actions */}
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
@@ -561,14 +578,14 @@ export function TransactionModal() {
               </div>
 
               {/* Transactions Preview Table */}
-              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                 {parsedItems.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleToggleItem(item.id)}
                     className={cn(
                       'flex items-center justify-between p-2.5 text-xs transition-colors cursor-pointer select-none',
-                      item.selected ? 'bg-indigo-50/30' : 'opacity-60 bg-white'
+                      item.selected ? 'bg-indigo-50/30 dark:bg-indigo-950/30' : 'opacity-60 bg-white dark:bg-slate-900'
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
@@ -576,13 +593,13 @@ export function TransactionModal() {
                         type="checkbox"
                         checked={item.selected}
                         onChange={() => {}}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                        className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
                       />
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
                           {item.description}
                         </p>
-                        <p className="text-[10px] text-slate-500">{item.date}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.date}</p>
                       </div>
                     </div>
 
@@ -591,8 +608,8 @@ export function TransactionModal() {
                         className={cn(
                           'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider',
                           item.type === 'income'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-rose-100 text-rose-800'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                            : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
                         )}
                       >
                         {item.type}
@@ -600,7 +617,7 @@ export function TransactionModal() {
                       <span
                         className={cn(
                           'font-bold text-xs',
-                          item.type === 'income' ? 'text-emerald-600' : 'text-slate-900'
+                          item.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
                         )}
                       >
                         {item.type === 'income' ? '+' : '-'}{settings.currencySymbol || 'Rs.'}{' '}

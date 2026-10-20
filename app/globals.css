@@ -1,61 +1,445 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --font-serif: var(--font-display), 'Fraunces', Georgia, serif;
+    --font-sans: var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Semantic Accents */
+    --accent-income: #10b981;
+    --accent-expense: #f43f5e;
+    --accent-savings: #f59e0b;
+    --accent-balance: #8b5cf6;
+
+    /* Light Theme - Clean Slate (Default) */
+    --canvas-bg: #f8fafc;
+    --canvas-fg: #0f172a;
+    --canvas-muted: #64748b;
+    --foreground: #0f172a;
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --border: #e2e8f0;
+    --muted-foreground: #64748b;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --glass-bg: rgba(255, 255, 255, 0.94);
+    --glass-border: #e2e8f0;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+  /* Paper Ledger (Archival Warm Paper, Fountain Pen Ink, Brass Accents) */
+  [data-theme='paper'] {
+    --canvas-bg: #fbf9f4;
+    --canvas-fg: #23211e;
+    --canvas-muted: #6e675f;
+    --foreground: #23211e;
+    --background: #fbf9f4;
+    --surface: #ffffff;
+    --surface-2: #f4eee2;
+    --border: #e6dfcf;
+    --muted-foreground: #6e675f;
+    --card-bg: #ffffff;
+    --card-border: #e6dfcf;
+    --glass-bg: rgba(251, 249, 244, 0.95);
+    --glass-border: #e6dfcf;
+
+    --accent-income: #15803d;
+    --accent-expense: #b91c1c;
+    --accent-savings: #b45309;
+    --accent-balance: #854d0e;
+  }
+
+  /* Executive Obsidian (Default Dark) */
+  .dark,
+  [data-theme='aurora-dark'] {
+    --canvas-bg: #090d16;
+    --canvas-fg: #f8fafc;
+    --canvas-muted: #94a3b8;
+    --foreground: #f8fafc;
+    --background: #090d16;
+    --surface: #101623;
+    --surface-2: #192233;
+    --border: rgba(255, 255, 255, 0.09);
+    --muted-foreground: #94a3b8;
+    --card-bg: #101623;
+    --card-border: rgba(255, 255, 255, 0.09);
+    --glass-bg: rgba(16, 22, 35, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.09);
+  }
+
+  /* Nordic Cyan (Fintech Deep Navy & Arctic Cyan) */
+  [data-theme='midnight'] {
+    --canvas-bg: #060b14;
+    --canvas-fg: #f0f6fc;
+    --canvas-muted: #8b9bb4;
+    --foreground: #f0f6fc;
+    --background: #060b14;
+    --surface: #0c1524;
+    --surface-2: #142136;
+    --border: rgba(56, 189, 248, 0.16);
+    --muted-foreground: #8b9bb4;
+    --card-bg: #0c1524;
+    --card-border: rgba(56, 189, 248, 0.16);
+    --glass-bg: rgba(12, 21, 36, 0.92);
+    --glass-border: rgba(56, 189, 248, 0.16);
+  }
+
+  /* Forest Terminal (Trading Desk Pine & Cyber Emerald) */
+  [data-theme='emerald'] {
+    --canvas-bg: #02140e;
+    --canvas-fg: #ecfdf5;
+    --canvas-muted: #6ee7b7;
+    --foreground: #ecfdf5;
+    --background: #02140e;
+    --surface: #052319;
+    --surface-2: #0a3527;
+    --border: rgba(16, 185, 129, 0.2);
+    --muted-foreground: #a7f3d0;
+    --card-bg: #052319;
+    --card-border: rgba(16, 185, 129, 0.2);
+    --glass-bg: rgba(5, 35, 25, 0.92);
+    --glass-border: rgba(16, 185, 129, 0.2);
+  }
+
+  /* Obsidian Gold (Swiss Private Banking Luxury) */
+  [data-theme='amber'] {
+    --canvas-bg: #0d0a06;
+    --canvas-fg: #fefce8;
+    --canvas-muted: #d4b584;
+    --foreground: #fefce8;
+    --background: #0d0a06;
+    --surface: #18130b;
+    --surface-2: #261e12;
+    --border: rgba(245, 158, 11, 0.22);
+    --muted-foreground: #d4b584;
+    --card-bg: #18130b;
+    --card-border: rgba(245, 158, 11, 0.22);
+    --glass-bg: rgba(24, 19, 11, 0.92);
+    --glass-border: rgba(245, 158, 11, 0.22);
+  }
+
+  /* Desert Sand (Terracotta & Dune Parchment - Light) */
+  [data-theme='sand'] {
+    --canvas-bg: #f7f3ec;
+    --canvas-fg: #292524;
+    --canvas-muted: #78716c;
+    --foreground: #292524;
+    --background: #f7f3ec;
+    --surface: #ffffff;
+    --surface-2: #efe9df;
+    --border: #e7dfd4;
+    --muted-foreground: #78716c;
+    --card-bg: #ffffff;
+    --card-border: #e7dfd4;
+    --glass-bg: rgba(247, 243, 236, 0.95);
+    --glass-border: #e7dfd4;
+
+    --accent-income: #16a34a;
+    --accent-expense: #dc2626;
+    --accent-savings: #c2410c;
+    --accent-balance: #9a3412;
+  }
+
+  /* Matcha Botanical (Zen Mindful Sage - Light) */
+  [data-theme='matcha'] {
+    --canvas-bg: #f4f6f1;
+    --canvas-fg: #1c241d;
+    --canvas-muted: #627063;
+    --foreground: #1c241d;
+    --background: #f4f6f1;
+    --surface: #ffffff;
+    --surface-2: #eaeee6;
+    --border: #dbe2d8;
+    --muted-foreground: #627063;
+    --card-bg: #ffffff;
+    --card-border: #dbe2d8;
+    --glass-bg: rgba(244, 246, 241, 0.95);
+    --glass-border: #dbe2d8;
+
+    --accent-income: #16a34a;
+    --accent-expense: #e11d48;
+    --accent-savings: #15803d;
+    --accent-balance: #166534;
+  }
+
+  /* Monochrome Carbon (Minimalist Pitch Black OLED - Dark) */
+  [data-theme='carbon'] {
+    --canvas-bg: #050505;
+    --canvas-fg: #ffffff;
+    --canvas-muted: #a1a1aa;
+    --foreground: #ffffff;
+    --background: #050505;
+    --surface: #0f0f10;
+    --surface-2: #18181b;
+    --border: rgba(255, 255, 255, 0.14);
+    --muted-foreground: #a1a1aa;
+    --card-bg: #0f0f10;
+    --card-border: rgba(255, 255, 255, 0.14);
+    --glass-bg: rgba(15, 15, 16, 0.94);
+    --glass-border: rgba(255, 255, 255, 0.14);
+
+    --accent-income: #4ade80;
+    --accent-expense: #f87171;
+    --accent-savings: #ffffff;
+    --accent-balance: #e4e4e7;
+  }
+
+  /* Rose Gold Vault (Prestige Copper & Espresso - Dark) */
+  [data-theme='rose-gold'] {
+    --canvas-bg: #110a0c;
+    --canvas-fg: #fff1f2;
+    --canvas-muted: #fda4af;
+    --foreground: #fff1f2;
+    --background: #110a0c;
+    --surface: #1d1216;
+    --surface-2: #2b1a20;
+    --border: rgba(251, 113, 133, 0.22);
+    --muted-foreground: #fda4af;
+    --card-bg: #1d1216;
+    --card-border: rgba(251, 113, 133, 0.22);
+    --glass-bg: rgba(29, 18, 22, 0.92);
+    --glass-border: rgba(251, 113, 133, 0.22);
+
+    --accent-income: #34d399;
+    --accent-expense: #fb7185;
+    --accent-savings: #f43f5e;
+    --accent-balance: #fda4af;
+  }
+
+  /* Royal Treasury (Sovereign Cobalt & Central Banking - Dark) */
+  [data-theme='cobalt'] {
+    --canvas-bg: #050c1e;
+    --canvas-fg: #f0f9ff;
+    --canvas-muted: #93c5fd;
+    --foreground: #f0f9ff;
+    --background: #050c1e;
+    --surface: #0a1633;
+    --surface-2: #10214a;
+    --border: rgba(59, 130, 246, 0.24);
+    --muted-foreground: #93c5fd;
+    --card-bg: #0a1633;
+    --card-border: rgba(59, 130, 246, 0.24);
+    --glass-bg: rgba(10, 22, 51, 0.92);
+    --glass-border: rgba(59, 130, 246, 0.24);
+
+    --accent-income: #38bdf8;
+    --accent-expense: #f43f5e;
+    --accent-savings: #3b82f6;
+    --accent-balance: #60a5fa;
   }
 }
 
 body {
-  background-color: #f8fafc;
-  color: #0f172a;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: var(--canvas-bg);
+  color: var(--canvas-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  overflow-x: hidden;
 }
 
-/* Custom scrollbar */
+/* Expressive Display Headings and Numerals */
+.font-display {
+  font-family: var(--font-display), 'Fraunces', Georgia, serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* High-Performance Lightweight Background Glow (Zero animation lag) */
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(20, 184, 166, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 85%, rgba(244, 63, 94, 0.05) 0%, transparent 50%);
+}
+
+.dark .ambient-bg,
+[data-theme='aurora-dark'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(139, 92, 246, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(20, 184, 166, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(244, 63, 94, 0.08) 0%, transparent 50%);
+}
+
+/* Paper Theme Ambient Background */
+[data-theme='paper'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 12% 15%, rgba(180, 83, 9, 0.05) 0%, transparent 45%),
+    radial-gradient(circle at 88% 18%, rgba(21, 128, 61, 0.04) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(185, 28, 28, 0.03) 0%, transparent 50%);
+}
+
+/* Nordic Cyan Ambient Background */
+[data-theme='midnight'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(14, 165, 233, 0.08) 0%, transparent 50%);
+}
+
+/* Forest Terminal Ambient Background */
+[data-theme='emerald'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(16, 185, 129, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(52, 211, 153, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(251, 191, 36, 0.06) 0%, transparent 50%);
+}
+
+/* Obsidian Gold Ambient Background */
+[data-theme='amber'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(245, 158, 11, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(217, 119, 6, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(234, 179, 8, 0.07) 0%, transparent 50%);
+}
+
+/* Desert Sand Ambient Background */
+[data-theme='sand'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 12%, rgba(194, 65, 12, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(22, 163, 74, 0.04) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(220, 38, 38, 0.03) 0%, transparent 50%);
+}
+
+/* Matcha Botanical Ambient Background */
+[data-theme='matcha'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 12%, rgba(21, 128, 61, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(22, 163, 74, 0.05) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(225, 29, 72, 0.03) 0%, transparent 50%);
+}
+
+/* Monochrome Carbon Ambient Background */
+[data-theme='carbon'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(161, 161, 170, 0.04) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+}
+
+/* Rose Gold Vault Ambient Background */
+[data-theme='rose-gold'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(251, 113, 133, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(244, 63, 94, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(253, 164, 175, 0.06) 0%, transparent 50%);
+}
+
+/* Royal Treasury Ambient Background */
+[data-theme='cobalt'] .ambient-bg {
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(59, 130, 246, 0.15) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(37, 99, 235, 0.08) 0%, transparent 50%);
+}
+
+/* ================= CARD & GLASS UTILITIES ================= */
+.aurora-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.aurora-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 14px -2px rgba(99, 102, 241, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Paper Card Shadows & Hover */
+[data-theme='paper'] .aurora-card {
+  background: #ffffff;
+  border-color: #e6dfcf;
+  box-shadow: 0 1px 3px 0 rgba(70, 50, 20, 0.04), 0 1px 2px -1px rgba(70, 50, 20, 0.02);
+}
+
+[data-theme='paper'] .aurora-card:hover {
+  border-color: #c9bc9e;
+  box-shadow: 0 4px 16px -2px rgba(180, 83, 9, 0.12), 0 2px 6px -1px rgba(70, 50, 20, 0.04);
+}
+
+/* Desert Sand Hover */
+[data-theme='sand'] .aurora-card:hover {
+  border-color: #c2410c;
+  box-shadow: 0 4px 16px -2px rgba(194, 65, 12, 0.12);
+}
+
+/* Matcha Botanical Hover */
+[data-theme='matcha'] .aurora-card:hover {
+  border-color: #15803d;
+  box-shadow: 0 4px 16px -2px rgba(21, 128, 61, 0.12);
+}
+
+.dark .aurora-card {
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.5);
+}
+
+.dark .aurora-card:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 8px 24px -4px rgba(139, 92, 246, 0.2);
+}
+
+[data-theme='midnight'] .aurora-card:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(56, 189, 248, 0.2);
+}
+
+[data-theme='emerald'] .aurora-card:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.2);
+}
+
+[data-theme='amber'] .aurora-card:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.2);
+}
+
+[data-theme='carbon'] .aurora-card:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 8px 24px -4px rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='rose-gold'] .aurora-card:hover {
+  border-color: rgba(251, 113, 133, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(251, 113, 133, 0.2);
+}
+
+[data-theme='cobalt'] .aurora-card:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(59, 130, 246, 0.2);
+}
+
+.aurora-glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ================= PRIVACY MODE BLUR ================= */
+.privacy-blur .privacy-sensitive,
+.privacy-blur [data-privacy="true"] {
+  filter: blur(8px) !important;
+  user-select: none !important;
+  transition: filter 0.15s ease;
+}
+
+.privacy-blur .privacy-sensitive:hover,
+.privacy-blur [data-privacy="true"]:hover {
+  filter: blur(3px) !important;
+}
+
+/* ================= SCROLLBAR ================= */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -64,82 +448,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(148, 163, 184, 0.6);
 }
-
-/* ================= THEME MODES ================= */
-[data-theme='midnight'] body {
-  background-color: #090d16 !important;
-  color: #f1f5f9 !important;
-}
-[data-theme='midnight'] .bg-white {
-  background-color: #0f172a !important;
-  border-color: #1e293b !important;
-}
-[data-theme='midnight'] .bg-slate-50 {
-  background-color: #0a0f1d !important;
-}
-[data-theme='midnight'] .text-slate-900 { color: #f8fafc !important; }
-[data-theme='midnight'] .text-slate-800 { color: #f1f5f9 !important; }
-[data-theme='midnight'] .text-slate-700 { color: #cbd5e1 !important; }
-[data-theme='midnight'] .text-slate-600 { color: #94a3b8 !important; }
-[data-theme='midnight'] .border-slate-100 { border-color: #1e293b !important; }
-[data-theme='midnight'] .border-slate-200 { border-color: #334155 !important; }
-
-[data-theme='emerald'] body {
-  background-color: #021a14 !important;
-  color: #ecfdf5 !important;
-}
-[data-theme='emerald'] .bg-white {
-  background-color: #042a20 !important;
-  border-color: #064e3b !important;
-}
-[data-theme='emerald'] .bg-slate-50 {
-  background-color: #021f18 !important;
-}
-[data-theme='emerald'] .text-slate-900 { color: #f0fdf4 !important; }
-[data-theme='emerald'] .text-slate-800 { color: #dcfce7 !important; }
-[data-theme='emerald'] .text-slate-700 { color: #a7f3d0 !important; }
-[data-theme='emerald'] .text-slate-600 { color: #6ee7b7 !important; }
-[data-theme='emerald'] .border-slate-100 { border-color: #064e3b !important; }
-[data-theme='emerald'] .border-slate-200 { border-color: #065f46 !important; }
-
-[data-theme='sapphire'] body {
-  background-color: #031427 !important;
-  color: #f0f9ff !important;
-}
-[data-theme='sapphire'] .bg-white {
-  background-color: #082343 !important;
-  border-color: #0c4a6e !important;
-}
-[data-theme='sapphire'] .bg-slate-50 {
-  background-color: #051932 !important;
-}
-[data-theme='sapphire'] .text-slate-900 { color: #f8fafc !important; }
-[data-theme='sapphire'] .text-slate-800 { color: #e0f2fe !important; }
-[data-theme='sapphire'] .text-slate-700 { color: #bae6fd !important; }
-[data-theme='sapphire'] .text-slate-600 { color: #7dd3fc !important; }
-[data-theme='sapphire'] .border-slate-100 { border-color: #0c4a6e !important; }
-[data-theme='sapphire'] .border-slate-200 { border-color: #0369a1 !important; }
-
-[data-theme='amber'] body {
-  background-color: #120e06 !important;
-  color: #fefce8 !important;
-}
-[data-theme='amber'] .bg-white {
-  background-color: #1f1809 !important;
-  border-color: #451a03 !important;
-}
-[data-theme='amber'] .bg-slate-50 {
-  background-color: #181307 !important;
-}
-[data-theme='amber'] .text-slate-900 { color: #fffbeb !important; }
-[data-theme='amber'] .text-slate-800 { color: #fef3c7 !important; }
-[data-theme='amber'] .text-slate-700 { color: #fde68a !important; }
-[data-theme='amber'] .text-slate-600 { color: #fcd34d !important; }
-[data-theme='amber'] .border-slate-100 { border-color: #3b2809 !important; }
-[data-theme='amber'] .border-slate-200 { border-color: #5c3e0c !important; }

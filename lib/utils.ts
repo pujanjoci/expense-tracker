@@ -1,6 +1,19 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Account, Transaction, AccountBalanceSummary, MonthlyOverview, Category, CategorySpending, MonthlyTrend } from '@/types';
+import {
+  Account,
+  Transaction,
+  AccountBalanceSummary,
+  MonthlyOverview,
+  Category,
+  CategorySpending,
+  MonthlyTrend,
+  SavingsGoal,
+  SavingsTransaction,
+  SavingsGoalProgress,
+  SavingsSummary,
+  GoalStatus,
+} from '@/types';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfYear, endOfYear, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
@@ -399,3 +412,380 @@ export function filterTransactionsByPeriod(
 
   return transactions;
 }
+
+/**
+ * Calculate progress and status for a single savings goal
+ */
+export function calculateGoalProgress(
+  goal: SavingsGoal,
+  transactions: SavingsTransaction[] = []
+): SavingsGoalProgress {
+  const goalTransactions = transactions.filter((tx) => tx.goalId === goal.id);
+  let totalDeposited = 0;
+  let totalWithdrawn = 0;
+
+  goalTransactions.forEach((tx) => {
+    const amount = parseAmountSafe(tx.amount);
+    if (tx.type === 'deposit') {
+      totalDeposited += amount;
+    } else if (tx.type === 'withdraw') {
+      totalWithdrawn += amount;
+    }
+  });
+
+  const initialAmount = Math.max(0, parseAmountSafe(goal.initialAmount));
+  const targetAmount = Math.max(0, parseAmountSafe(goal.targetAmount));
+  const currentSaved = Math.max(0, initialAmount + totalDeposited - totalWithdrawn);
+  const remainingAmount = Math.max(0, targetAmount - currentSaved);
+  const progressPercentage = targetAmount > 0
+    ? Math.min(100, Math.round((currentSaved / targetAmount) * 100))
+    : (currentSaved > 0 ? 100 : 0);
+
+  let computedStatus: GoalStatus = goal.status;
+  if (goal.status !== 'archived') {
+    if (targetAmount > 0 && currentSaved >= targetAmount) {
+      computedStatus = 'completed';
+    } else {
+      computedStatus = 'active';
+    }
+  }
+
+  return {
+    ...goal,
+    initialAmount,
+    targetAmount,
+    currentSaved,
+    remainingAmount,
+    progressPercentage,
+    computedStatus,
+    totalDeposited,
+    totalWithdrawn,
+    transactionCount: goalTransactions.length,
+  };
+}
+
+/**
+ * Calculate progress for an array of savings goals
+ */
+export function calculateSavingsGoalsProgress(
+  goals: SavingsGoal[],
+  transactions: SavingsTransaction[] = []
+): SavingsGoalProgress[] {
+  return goals.map((goal) => calculateGoalProgress(goal, transactions));
+}
+
+/**
+ * Calculate overall savings dashboard summary cards
+ */
+export function calculateSavingsSummary(
+  goalsWithProgress: SavingsGoalProgress[]
+): SavingsSummary {
+  // Only non-archived goals contribute to active metrics
+  const activeOrCompleted = goalsWithProgress.filter((g) => g.computedStatus !== 'archived');
+  const activeOnly = goalsWithProgress.filter((g) => g.computedStatus === 'active');
+  const completedOnly = goalsWithProgress.filter((g) => g.computedStatus === 'completed');
+  const archivedOnly = goalsWithProgress.filter((g) => g.computedStatus === 'archived');
+
+  const totalSaved = activeOrCompleted.reduce((sum, g) => sum + g.currentSaved, 0);
+  const combinedTarget = activeOrCompleted.reduce((sum, g) => sum + g.targetAmount, 0);
+  const remainingToTarget = activeOnly.reduce((sum, g) => sum + g.remainingAmount, 0);
+
+  const overallProgressPercentage = combinedTarget > 0
+    ? Math.min(100, Math.round((totalSaved / combinedTarget) * 100))
+    : 0;
+
+  return {
+    totalSaved,
+    activeGoalsCount: activeOnly.length,
+    completedGoalsCount: completedOnly.length,
+    archivedGoalsCount: archivedOnly.length,
+    combinedTarget,
+    remainingToTarget,
+    overallProgressPercentage,
+  };
+}
+
+/**
+ * Helper to get days remaining or overdue for a savings goal target date
+ */
+export function getGoalDateStatus(targetDate?: string): {
+  formattedDate: string;
+  isOverdue: boolean;
+  daysRemaining: number;
+  label: string;
+} | null {
+  if (!targetDate) return null;
+  try {
+    const target = parseDateSafe(targetDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDay = new Date(target);
+    targetDay.setHours(0, 0, 0, 0);
+
+    const diffTime = targetDay.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const formattedDate = formatDate(targetDate, 'dd MMM yyyy');
+
+    if (diffDays < 0) {
+      const overdueDays = Math.abs(diffDays);
+      return {
+        formattedDate,
+        isOverdue: true,
+        daysRemaining: diffDays,
+        label: overdueDays === 1 ? '1 day overdue' : `${overdueDays} days overdue`,
+      };
+    } else if (diffDays === 0) {
+      return {
+        formattedDate,
+        isOverdue: false,
+        daysRemaining: 0,
+        label: 'Target date today',
+      };
+    } else {
+      return {
+        formattedDate,
+        isOverdue: false,
+        daysRemaining: diffDays,
+        label: diffDays === 1 ? '1 day left' : `${diffDays} days left`,
+      };
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calculate budget progress and status for all active budgets in a given month (default current month)
+ */
+export function calculateBudgetsStatus(
+  budgets: import('@/types').Budget[],
+  transactions: Transaction[],
+  categories: Category[],
+  monthStr?: string
+): import('@/types').CategoryBudgetStatus[] {
+  const targetMonth = monthStr || format(new Date(), 'yyyy-MM');
+  const monthBudgets = budgets.filter((b) => b.month === targetMonth);
+
+  // Group current month's expense transactions by category
+  const expenseTransactions = transactions.filter((tx) => {
+    if (tx.type !== 'expense') return false;
+    const txMonth = tx.date.slice(0, 7);
+    return txMonth === targetMonth;
+  });
+
+  const spentByCategory: Record<string, number> = {};
+  expenseTransactions.forEach((tx) => {
+    if (tx.categoryId) {
+      spentByCategory[tx.categoryId] = (spentByCategory[tx.categoryId] || 0) + parseAmountSafe(tx.amount);
+    }
+  });
+
+  return monthBudgets.map((b) => {
+    const cat = categories.find((c) => c.id === b.category || c.name.toLowerCase() === b.category.toLowerCase());
+    const categoryName = cat ? cat.name : b.category;
+    const icon = cat?.icon || 'Tag';
+    const currentSpent = cat ? (spentByCategory[cat.id] || 0) : (spentByCategory[b.category] || 0);
+    const limit = parseAmountSafe(b.monthlyLimit);
+    const remaining = Math.max(0, limit - currentSpent);
+    const percentage = limit > 0 ? Math.round((currentSpent / limit) * 100) : 0;
+
+    return {
+      budget: b,
+      categoryName,
+      icon,
+      monthlyLimit: limit,
+      currentSpent,
+      remaining,
+      percentage,
+      isWarning: percentage >= 80 && percentage < 100,
+      isOverBudget: percentage >= 100,
+    };
+  });
+}
+
+/**
+ * Generate plain-language financial insights
+ */
+export function generateInsights(
+  transactions: Transaction[],
+  budgets: import('@/types').Budget[],
+  recurring: import('@/types').RecurringTransaction[],
+  monthlyOverview: MonthlyOverview
+): import('@/types').InsightCardData[] {
+  const insights: import('@/types').InsightCardData[] = [];
+  const now = new Date();
+  const currentMonthStr = format(now, 'yyyy-MM');
+  const prevMonthStr = format(subMonths(now, 1), 'yyyy-MM');
+
+  // 1. Month-over-month spending comparison
+  const currentMonthExpenses = transactions
+    .filter((t) => t.type === 'expense' && t.date.startsWith(currentMonthStr))
+    .reduce((s, t) => s + parseAmountSafe(t.amount), 0);
+
+  const prevMonthExpenses = transactions
+    .filter((t) => t.type === 'expense' && t.date.startsWith(prevMonthStr))
+    .reduce((s, t) => s + parseAmountSafe(t.amount), 0);
+
+  if (prevMonthExpenses > 0) {
+    const diffPct = Math.round(((currentMonthExpenses - prevMonthExpenses) / prevMonthExpenses) * 100);
+    if (diffPct < -10) {
+      insights.push({
+        id: 'spend-down',
+        type: 'decrease',
+        title: 'Spending is down',
+        description: `You've spent ${Math.abs(diffPct)}% less this month compared to this point last month. Great pace!`,
+        metric: `${Math.abs(diffPct)}% lower`,
+      });
+    } else if (diffPct > 20) {
+      insights.push({
+        id: 'spend-up',
+        type: 'increase',
+        title: 'Spending pace increased',
+        description: `Spending is up ${diffPct}% compared to last month. Review non-essential expenses.`,
+        metric: `+${diffPct}%`,
+      });
+    }
+  }
+
+  // 2. Largest expense this month
+  const currentMonthTx = transactions.filter((t) => t.type === 'expense' && t.date.startsWith(currentMonthStr));
+  if (currentMonthTx.length > 0) {
+    const largest = [...currentMonthTx].sort((a, b) => parseAmountSafe(b.amount) - parseAmountSafe(a.amount))[0];
+    if (largest && parseAmountSafe(largest.amount) > 0) {
+      insights.push({
+        id: 'largest-expense',
+        type: 'warning',
+        title: 'Largest expense',
+        description: `"${largest.description}" was your single highest expense this month.`,
+        metric: `Rs. ${parseAmountSafe(largest.amount).toLocaleString('en-IN')}`,
+      });
+    }
+  }
+
+  // 3. Subscriptions / recurring summary
+  const activeSubs = recurring.filter((r) => r.active);
+  if (activeSubs.length > 0) {
+    const monthlySubTotal = activeSubs.reduce((acc, sub) => {
+      const amt = parseAmountSafe(sub.amount);
+      if (sub.frequency === 'daily') return acc + amt * 30;
+      if (sub.frequency === 'weekly') return acc + amt * 4.33;
+      if (sub.frequency === 'monthly') return acc + amt;
+      if (sub.frequency === 'yearly') return acc + amt / 12;
+      return acc;
+    }, 0);
+
+    insights.push({
+      id: 'subscriptions-insight',
+      type: 'tip',
+      title: 'Active subscriptions',
+      description: `You have ${activeSubs.length} recurring commitment${activeSubs.length > 1 ? 's' : ''} totaling ~Rs. ${Math.round(monthlySubTotal).toLocaleString('en-IN')}/mo.`,
+      metric: `${activeSubs.length} active`,
+    });
+  }
+
+  // 4. Savings rate milestone
+  if (monthlyOverview.totalIncome > 0) {
+    const savingsRate = Math.round((monthlyOverview.netSavings / monthlyOverview.totalIncome) * 100);
+    if (savingsRate >= 20) {
+      insights.push({
+        id: 'savings-rate-good',
+        type: 'milestone',
+        title: 'Strong savings rate',
+        description: `You are saving ${savingsRate}% of your income this month. Keep it up!`,
+        metric: `${savingsRate}% saved`,
+      });
+    }
+  }
+
+  return insights;
+}
+
+/**
+ * Calculate daily spending heatmap data for the past N days (e.g., 90 days)
+ */
+export function calculateDailySpendingHeatmap(
+  transactions: Transaction[],
+  daysCount = 84 // 12 weeks
+): { date: string; amount: number; count: number; level: 0 | 1 | 2 | 3 | 4 }[] {
+  const result: { date: string; amount: number; count: number; level: 0 | 1 | 2 | 3 | 4 }[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dailyTotals: Record<string, { amount: number; count: number }> = {};
+  transactions.forEach((tx) => {
+    if (tx.type === 'expense') {
+      const d = tx.date.slice(0, 10);
+      if (!dailyTotals[d]) dailyTotals[d] = { amount: 0, count: 0 };
+      dailyTotals[d].amount += parseAmountSafe(tx.amount);
+      dailyTotals[d].count += 1;
+    }
+  });
+
+  // Collect all positive amounts to compute quartile thresholds
+  const amounts = Object.values(dailyTotals).map((v) => v.amount).filter((a) => a > 0).sort((a, b) => a - b);
+  const q1 = amounts[Math.floor(amounts.length * 0.25)] || 500;
+  const q2 = amounts[Math.floor(amounts.length * 0.5)] || 1500;
+  const q3 = amounts[Math.floor(amounts.length * 0.75)] || 4000;
+
+  for (let i = daysCount - 1; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(day.getDate() - i);
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const entry = dailyTotals[dateStr] || { amount: 0, count: 0 };
+
+    let level: 0 | 1 | 2 | 3 | 4 = 0;
+    if (entry.amount > 0) {
+      if (entry.amount <= q1) level = 1;
+      else if (entry.amount <= q2) level = 2;
+      else if (entry.amount <= q3) level = 3;
+      else level = 4;
+    }
+
+    result.push({
+      date: dateStr,
+      amount: entry.amount,
+      count: entry.count,
+      level,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * End-of-month spending projection and forecast
+ */
+export function calculateForecast(
+  transactions: Transaction[],
+  now = new Date()
+): {
+  daysPassed: number;
+  daysRemaining: number;
+  totalDays: number;
+  spentSoFar: number;
+  dailyAverage: number;
+  projectedMonthEnd: number;
+} {
+  const currentMonthStr = format(now, 'yyyy-MM');
+  const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = Math.max(1, now.getDate());
+  const daysRemaining = Math.max(0, totalDays - daysPassed);
+
+  const spentSoFar = transactions
+    .filter((t) => t.type === 'expense' && t.date.startsWith(currentMonthStr))
+    .reduce((s, t) => s + parseAmountSafe(t.amount), 0);
+
+  const dailyAverage = Math.round(spentSoFar / daysPassed);
+  const projectedMonthEnd = Math.round(spentSoFar + dailyAverage * daysRemaining);
+
+  return {
+    daysPassed,
+    daysRemaining,
+    totalDays,
+    spentSoFar,
+    dailyAverage,
+    projectedMonthEnd,
+  };
+}
+

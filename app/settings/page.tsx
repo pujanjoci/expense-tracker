@@ -40,8 +40,12 @@ import {
   Palette,
   Image as ImageIcon,
   Sparkles,
+  Sun,
+  Moon,
+  ScrollText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { cn } from '@/lib/utils';
 
 const PRESET_CURRENCIES = [
   { code: 'NPR', symbol: 'Rs.', name: 'Nepalese Rupee (NPR)', position: 'prefix' },
@@ -70,14 +74,17 @@ export default function SettingsPage() {
 
   // Theme state
   const [activeTheme, setActiveTheme] = useState<string>('default');
+  const [themeFilter, setThemeFilter] = useState<'all' | 'light' | 'dark'>('all');
+  const [themeChangedToast, setThemeChangedToast] = useState(false);
 
   useEffect(() => {
     const user = getCurrentAppUser();
     setCurrentUser(user);
     if (user) {
+      const isGuest = isGuestUser();
       setProfileName(user.name || '');
-      setProfileAvatar(user.avatar);
-      setProfilePreset(user.avatarPreset || 'default');
+      setProfileAvatar(isGuest ? undefined : user.avatar);
+      setProfilePreset(isGuest ? 'default' : (user.avatarPreset || 'default'));
       setProfileBanner(user.banner || 'midnight');
     }
     setActiveTheme(getSavedTheme());
@@ -130,10 +137,11 @@ export default function SettingsPage() {
     if (!profileName.trim()) return;
     setIsSavingProfile(true);
     try {
+      const isGuest = isGuestUser();
       const updated = updateUserProfile({
         name: profileName.trim(),
-        avatar: profileAvatar,
-        avatarPreset: profilePreset,
+        avatar: isGuest ? undefined : profileAvatar,
+        avatarPreset: isGuest ? 'default' : profilePreset,
         banner: profileBanner,
       });
       if (updated) setCurrentUser(updated);
@@ -147,6 +155,8 @@ export default function SettingsPage() {
   const handleThemeChange = (themeId: string) => {
     setActiveTheme(themeId);
     applyTheme(themeId);
+    setThemeChangedToast(true);
+    setTimeout(() => setThemeChangedToast(false), 2400);
   };
 
   const handlePresetChange = (code: string) => {
@@ -203,8 +213,19 @@ export default function SettingsPage() {
     downloadAnchor.remove();
   };
 
+  const selectedThemeObj = THEME_OPTIONS.find((t) => t.id === activeTheme) || THEME_OPTIONS[0];
+
+  const lightCount = THEME_OPTIONS.filter((t) => !t.isDark).length;
+  const darkCount = THEME_OPTIONS.filter((t) => t.isDark).length;
+
+  const filteredThemes = THEME_OPTIONS.filter((theme) => {
+    if (themeFilter === 'light') return !theme.isDark;
+    if (themeFilter === 'dark') return theme.isDark;
+    return true;
+  });
+
   return (
-    <div className="space-y-6 max-w-3xl animate-in fade-in duration-200">
+    <div className="space-y-6 max-w-4xl animate-in fade-in duration-200">
       {/* Page Header */}
       <PageHeader
         title="Settings"
@@ -250,27 +271,31 @@ export default function SettingsPage() {
               <div className="flex items-end gap-3.5">
                 <div className="relative group">
                   <ProfileAvatar
-                    avatar={profileAvatar}
-                    presetId={profilePreset}
+                    avatar={isGuestUser() ? undefined : profileAvatar}
+                    presetId={isGuestUser() ? 'default' : profilePreset}
                     name={profileName}
                     size="xl"
-                    className="ring-4 ring-white shadow-md"
+                    className="ring-4 ring-white dark:ring-slate-900 shadow-md"
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Upload profile picture"
-                    className="absolute bottom-0 right-0 p-1.5 bg-slate-900 text-white rounded-full shadow-md hover:bg-slate-800 transition-colors cursor-pointer border-2 border-white"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarFile}
-                    className="hidden"
-                  />
+                  {!isGuestUser() && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Upload profile picture"
+                        className="absolute bottom-0 right-0 p-1.5 bg-slate-900 text-white rounded-full shadow-md hover:bg-slate-800 transition-colors cursor-pointer border-2 border-white dark:border-slate-800"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarFile}
+                        className="hidden"
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div className="mb-1">
@@ -327,14 +352,18 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Custom Profile Icon Selection */}
-            <div className="space-y-2 pt-1 border-t border-slate-100">
+            {/* Profile Avatar Icon Section */}
+            <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Custom Profile Icon (Or Default)</span>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Profile Avatar</span>
                 </p>
-                {profileAvatar && (
+                {isGuestUser() ? (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                    Single Default Icon
+                  </Badge>
+                ) : profileAvatar ? (
                   <button
                     type="button"
                     onClick={() => setProfileAvatar(undefined)}
@@ -342,38 +371,59 @@ export default function SettingsPage() {
                   >
                     Clear Custom Photo
                   </button>
-                )}
+                ) : null}
               </div>
-              <p className="text-[11px] text-slate-500">
-                Choose a sleek designer avatar icon. The first icon is the new default profile icon:
-              </p>
 
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
-                {PROFILE_AVATAR_OPTIONS.map((opt) => {
-                  const isSelected = profilePreset === opt.id && !profileAvatar;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => {
-                        setProfilePreset(opt.id);
-                        setProfileAvatar(undefined);
-                      }}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/15 scale-105 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70 bg-white'
-                      }`}
-                      title={opt.name}
-                    >
-                      <ProfileAvatar presetId={opt.id} size="md" />
-                      <span className="text-[10px] text-slate-700 font-medium truncate max-w-full">
-                        {opt.name.split(' ')[0]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {isGuestUser() ? (
+                /* Non-signed-in users get that single default icon, not many choosable icons */
+                <div className="flex items-center gap-3.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
+                  <div className="h-11 w-11 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs shrink-0">
+                    <ProfileAvatar presetId="default" size="md" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                      Standard Default Profile Icon
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Standard single icon for users who are not signed in. Connect your account to customize cloud avatars.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Signed-in users can choose from the avatar options */
+                <>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Choose a designer avatar icon or keep the standard default profile icon:
+                  </p>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
+                    {PROFILE_AVATAR_OPTIONS.map((opt) => {
+                      const isSelected = profilePreset === opt.id && !profileAvatar;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setProfilePreset(opt.id);
+                            setProfileAvatar(undefined);
+                          }}
+                          className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer bg-white dark:bg-slate-900 ${
+                            isSelected
+                              ? 'border-indigo-600 dark:border-indigo-500 ring-2 ring-indigo-500/30 scale-105 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                          title={opt.name}
+                        >
+                          <ProfileAvatar presetId={opt.id} size="md" />
+                          <span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium truncate max-w-full">
+                            {opt.name.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Name Input */}
@@ -414,59 +464,345 @@ export default function SettingsPage() {
       </Card>
 
       {/* Theme Customizer Card */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Palette className="w-5 h-5 text-indigo-600" />
-            <CardTitle>Themes & Aesthetics</CardTitle>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle>Themes & Financial Aesthetics</CardTitle>
+                <CardDescription>
+                  Tailor your workspace atmosphere, contrast, and tactile financial surfaces
+                </CardDescription>
+              </div>
+            </div>
+
+            {/* Quick Dark / Light Switch */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleThemeChange(selectedThemeObj.isDark ? 'paper' : 'aurora-dark')}
+                icon={selectedThemeObj.isDark ? Sun : Moon}
+              >
+                {selectedThemeObj.isDark ? 'Switch to Paper Light' : 'Switch to Obsidian Dark'}
+              </Button>
+            </div>
           </div>
-          <CardDescription>
-            Choose your preferred color theme and visual style for the entire web app
-          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {THEME_OPTIONS.map((theme) => {
+
+        <CardContent className="space-y-6">
+          {/* Featured Active Theme Hero Showcase */}
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 bg-gradient-to-br from-slate-50 via-white to-slate-100/60 dark:from-slate-900/90 dark:via-slate-900 dark:to-slate-950 shadow-xs">
+            {/* Ambient accent glow matching selected theme */}
+            <div
+              className="absolute -right-16 -top-16 w-60 h-60 rounded-full blur-3xl pointer-events-none opacity-25 transition-all duration-500"
+              style={{ backgroundColor: selectedThemeObj.accent }}
+            />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              {/* Left active metadata */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs">
+                    Current Active Theme
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-2xs">
+                    {selectedThemeObj.isDark ? (
+                      <Moon className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <Sun className="w-3 h-3 text-amber-500" />
+                    )}
+                    {selectedThemeObj.isDark ? 'Dark Terminal' : 'Light Canvas'}
+                  </span>
+                  {selectedThemeObj.badge && (
+                    <span
+                      className="text-xs font-semibold px-2.5 py-0.5 rounded-full border shadow-2xs"
+                      style={{
+                        borderColor: `${selectedThemeObj.accent}40`,
+                        backgroundColor: `${selectedThemeObj.accent}15`,
+                        color: selectedThemeObj.accent,
+                      }}
+                    >
+                      {selectedThemeObj.badge}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-display font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+                    {selectedThemeObj.name}
+                    <span className="text-xs font-mono font-medium text-slate-400 dark:text-slate-500">
+                      [{selectedThemeObj.tag}]
+                    </span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
+                    {selectedThemeObj.description}
+                  </p>
+                </div>
+
+                {/* Color swatches strip */}
+                <div className="flex items-center gap-3 pt-1 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Palette Tokens:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="w-3.5 h-3.5 rounded-full border border-black/10 dark:border-white/20 shadow-2xs" style={{ backgroundColor: selectedThemeObj.accent }} />
+                      <span className="font-mono text-[10px]">Accent</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="w-3.5 h-3.5 rounded-full border border-black/10 dark:border-white/20 shadow-2xs" style={{ backgroundColor: selectedThemeObj.incomeColor }} />
+                      <span className="font-mono text-[10px]">Income</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="w-3.5 h-3.5 rounded-full border border-black/10 dark:border-white/20 shadow-2xs" style={{ backgroundColor: selectedThemeObj.expenseColor }} />
+                      <span className="font-mono text-[10px]">Expense</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="w-3.5 h-3.5 rounded-full border border-black/10 dark:border-white/20 shadow-2xs" style={{ backgroundColor: selectedThemeObj.previewCard }} />
+                      <span className="font-mono text-[10px]">Surface</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="w-3.5 h-3.5 rounded-full border border-black/10 dark:border-white/20 shadow-2xs" style={{ backgroundColor: selectedThemeObj.previewBg }} />
+                      <span className="font-mono text-[10px]">Canvas</span>
+                    </div>
+                  </div>
+
+                  {themeChangedToast && (
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 ml-auto animate-in fade-in">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Theme applied!
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Quick Switch Button */}
+              <div className="sm:hidden self-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleThemeChange(selectedThemeObj.isDark ? 'paper' : 'aurora-dark')}
+                  icon={selectedThemeObj.isDark ? Sun : Moon}
+                >
+                  {selectedThemeObj.isDark ? 'Switch to Paper Light' : 'Switch to Dark Obsidian'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Filter Pills & Counter */}
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setThemeFilter('all')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                  themeFilter === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                All Themes ({THEME_OPTIONS.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemeFilter('light')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5',
+                  themeFilter === 'light'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                Light & Paper ({lightCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemeFilter('dark')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5',
+                  themeFilter === 'dark'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                Dark Terminals ({darkCount})
+              </button>
+            </div>
+
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Click any theme card to preview instantly
+            </span>
+          </div>
+
+          {/* Theme Grid with Miniature Realistic Previews */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredThemes.map((theme) => {
               const isActive = activeTheme === theme.id;
               return (
-                <button
+                <div
                   key={theme.id}
-                  type="button"
                   onClick={() => handleThemeChange(theme.id)}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                  className={cn(
+                    'group relative flex flex-col justify-between rounded-2xl border p-4 transition-all duration-200 cursor-pointer overflow-hidden',
                     isActive
-                      ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-500/30 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                  }`}
+                      ? 'border-indigo-600 dark:border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/25 shadow-md'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white/60 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-2xs'
+                  )}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-900">{theme.name}</span>
-                    {isActive && (
-                      <span className="w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
-                        ✓
+                  {/* Top Header inside Card */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-display font-bold text-sm text-slate-900 dark:text-slate-100 tracking-tight">
+                        {theme.name}
+                      </span>
+                      {theme.id === 'paper' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <ScrollText className="w-2.5 h-2.5" />
+                          Paper
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Active status or Mode badge */}
+                    {isActive ? (
+                      <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full bg-indigo-600 text-white flex items-center gap-1 shadow-xs">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
+                        {theme.isDark ? 'Dark' : 'Light'}
                       </span>
                     )}
                   </div>
 
-                  {/* Theme Color Palette Preview */}
+                  {/* Realistic Mini Dashboard Mockup */}
                   <div
-                    className="h-12 w-full rounded-lg border border-slate-200/60 p-2 flex items-center justify-between mb-2 shadow-2xs"
-                    style={{ background: theme.previewBg }}
+                    className="relative h-28 w-full rounded-xl overflow-hidden border p-2 mb-3 select-none flex flex-col justify-between transition-transform duration-200 group-hover:scale-[1.01]"
+                    style={{
+                      backgroundColor: theme.previewBg,
+                      borderColor: theme.previewBorder,
+                    }}
                   >
-                    <div
-                      className="h-6 w-12 rounded border border-white/20"
-                      style={{ background: theme.previewCard }}
-                    />
-                    <div
-                      className="h-4 w-4 rounded-full shadow-2xs"
-                      style={{ background: theme.accent }}
-                    />
+                    {/* Top mini browser / status bar */}
+                    <div className="flex items-center justify-between pb-1.5 border-b border-black/5 dark:border-white/5">
+                      <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full shadow-2xs" style={{ backgroundColor: theme.accent }} />
+                        <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.previewText }} />
+                        <span className="w-1 h-1 rounded-full opacity-25" style={{ backgroundColor: theme.previewText }} />
+                      </div>
+                      <span
+                        className="text-[9px] font-mono tracking-tight font-medium"
+                        style={{ color: theme.previewMuted }}
+                      >
+                        {theme.tag}
+                      </span>
+                      <span
+                        className="text-[8px] font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                          color: theme.previewMuted,
+                        }}
+                      >
+                        {theme.isDark ? 'TERMINAL' : 'CANVAS'}
+                      </span>
+                    </div>
+
+                    {/* Middle mini layout (Mini sidebar + Mini card) */}
+                    <div className="flex items-stretch gap-2 my-auto">
+                      {/* Mini sidebar silhouette */}
+                      <div
+                        className="w-4 rounded-md flex flex-col items-center gap-1 py-1"
+                        style={{ backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
+                      >
+                        <div className="w-2 h-1.5 rounded-[1px]" style={{ backgroundColor: theme.accent }} />
+                        <div className="w-1.5 h-1 rounded-[1px] opacity-35" style={{ backgroundColor: theme.previewText }} />
+                        <div className="w-1.5 h-1 rounded-[1px] opacity-35" style={{ backgroundColor: theme.previewText }} />
+                      </div>
+
+                      {/* Mini wealth card */}
+                      <div
+                        className="flex-1 rounded-lg p-2 border shadow-2xs flex flex-col justify-between"
+                        style={{
+                          backgroundColor: theme.previewCard,
+                          borderColor: theme.previewBorder,
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="text-[8px] font-semibold uppercase tracking-wider"
+                            style={{ color: theme.previewMuted }}
+                          >
+                            Net Balance
+                          </span>
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shadow-xs"
+                            style={{ backgroundColor: theme.accent }}
+                          />
+                        </div>
+                        <div
+                          className="font-display font-bold text-xs tracking-tight"
+                          style={{ color: theme.previewText }}
+                        >
+                          Rs. 142,500
+                        </div>
+                        {/* Mini income / expense indicator */}
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <span
+                            className="text-[8px] font-bold"
+                            style={{ color: theme.incomeColor }}
+                          >
+                            ▲ +82k
+                          </span>
+                          <span
+                            className="text-[8px] font-bold"
+                            style={{ color: theme.expenseColor }}
+                          >
+                            ▼ -34k
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom color accent bar */}
+                    <div className="flex items-center justify-between text-[8px] pt-1 border-t border-black/5 dark:border-white/5 font-mono">
+                      <span style={{ color: theme.previewMuted }}>Colorway</span>
+                      <div className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full shadow-2xs" style={{ backgroundColor: theme.accent }} title="Accent" />
+                        <span className="w-2.5 h-2.5 rounded-full shadow-2xs" style={{ backgroundColor: theme.incomeColor }} title="Income" />
+                        <span className="w-2.5 h-2.5 rounded-full shadow-2xs" style={{ backgroundColor: theme.expenseColor }} title="Expense" />
+                      </div>
+                    </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 leading-tight">
-                    {theme.description}
-                  </p>
-                </button>
+                  {/* Description & Action Footer */}
+                  <div className="space-y-2 mt-auto">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      {theme.description}
+                    </p>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                        {theme.accent}
+                      </span>
+                      <span className={cn(
+                        'text-[11px] font-semibold transition-colors',
+                        isActive
+                          ? 'text-indigo-600 dark:text-indigo-400'
+                          : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-900 dark:group-hover:text-slate-200'
+                      )}>
+                        {isActive ? 'Active theme' : 'Click to apply →'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>

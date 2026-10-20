@@ -9,7 +9,7 @@ export function Card({ className, children, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-slate-200/80 bg-white shadow-xs transition-all duration-200',
+        'aurora-card rounded-2xl overflow-hidden',
         className
       )}
       {...props}
@@ -30,7 +30,7 @@ export function CardHeader({ className, children, ...props }: CardProps) {
 export function CardTitle({ className, children, ...props }: CardProps) {
   return (
     <h3
-      className={cn('font-semibold text-slate-900 tracking-tight text-base sm:text-lg', className)}
+      className={cn('font-display font-bold tracking-tight text-base sm:text-lg text-slate-900 dark:text-slate-100', className)}
       {...props}
     >
       {children}
@@ -40,7 +40,7 @@ export function CardTitle({ className, children, ...props }: CardProps) {
 
 export function CardDescription({ className, children, ...props }: CardProps) {
   return (
-    <p className={cn('text-xs sm:text-sm text-slate-500', className)} {...props}>
+    <p className={cn('text-xs sm:text-sm text-slate-500 dark:text-slate-400', className)} {...props}>
       {children}
     </p>
   );

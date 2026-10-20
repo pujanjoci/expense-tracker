@@ -4,6 +4,7 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AnalyticsCharts } from '@/components/analytics/AnalyticsCharts';
+import { SpendingHeatmap } from '@/components/analytics/SpendingHeatmap';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ChartNoAxesCombined } from 'lucide-react';
 
@@ -34,11 +35,14 @@ export default function AnalyticsPage() {
           </div>
         </div>
       ) : (
-        <AnalyticsCharts
-          transactions={transactions}
-          accounts={accounts}
-          categories={categories}
-        />
+        <div className="space-y-6">
+          <SpendingHeatmap />
+          <AnalyticsCharts
+            transactions={transactions}
+            accounts={accounts}
+            categories={categories}
+          />
+        </div>
       )}
     </div>
   );
