@@ -23,7 +23,7 @@ export function PageHeader({
           </div>
         )}
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             {title}
           </h1>
           {description && (

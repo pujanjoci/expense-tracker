@@ -41,12 +41,12 @@ export function TransactionTable({
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-xs">
       <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300 border-collapse">
-        <thead className="bg-slate-50/75 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <thead className="bg-slate-50/75 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-medium text-slate-500 dark:text-slate-400">
           <tr>
             <th className="py-3 px-4">Date</th>
             <th className="py-3 px-4">Description</th>
             <th className="py-3 px-4">Category</th>
-            <th className="py-3 px-4">Account / Source</th>
+            <th className="py-3 px-4">Account or source</th>
             <th className="py-3 px-4">Type</th>
             <th className="py-3 px-4 text-right">Amount</th>
             <th className="py-3 px-4 text-right">Actions</th>

@@ -243,19 +243,19 @@ export function SavingsGoalCard({
         <div className="space-y-2 pt-1">
           <div className="flex items-baseline justify-between gap-2">
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 block">
                 Saved
               </span>
-              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {formatMoney(goal.currentSaved)}
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 block">
                 Target
               </span>
-              <div className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              <div className="text-sm font-medium text-slate-600 dark:text-slate-300 tabular-nums">
                 {formatMoney(goal.targetAmount)}
               </div>
             </div>

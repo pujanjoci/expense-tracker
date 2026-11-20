@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { MonthlyTrend } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { calculateForecast } from '@/lib/utils';
-import { Sparkles } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 interface IncomeExpenseChartProps {
   data: MonthlyTrend[];
@@ -65,7 +65,7 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
           {projected !== undefined && (
             <div className="flex items-center justify-between gap-3 text-violet-600 dark:text-violet-400 font-medium border-t border-slate-100 dark:border-slate-800/80 pt-1">
               <span className="flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Projected:
+                <TrendingUp className="w-3 h-3" /> Projected:
               </span>
               <span className="tabular-nums privacy-sensitive">{formatMoney(projected)}</span>
             </div>
@@ -90,7 +90,7 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
     <Card className="flex flex-col">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 sm:pb-4">
         <div>
-          <CardTitle>Cash Flow & Trends</CardTitle>
+          <CardTitle>Cash flow & trends</CardTitle>
           <CardDescription>
             Monthly income vs expenses over the last 6 months
           </CardDescription>
@@ -99,14 +99,14 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
           <button
             type="button"
             onClick={() => setShowForecast((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
               showForecast
-                ? 'bg-violet-50 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 shadow-xs'
-                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
             title="Toggle month-end spending forecast"
           >
-            <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+            <TrendingUp className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
             <span>Forecast: {formatMoney(forecast.projectedMonthEnd)}</span>
           </button>
         </div>

@@ -47,7 +47,7 @@ export function RecentTransactions({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
         <div>
-          <CardTitle>Recent Transactions</CardTitle>
+          <CardTitle>Recent transactions</CardTitle>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Latest activity across all accounts</p>
         </div>
         <Link

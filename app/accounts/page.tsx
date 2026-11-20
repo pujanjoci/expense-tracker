@@ -92,27 +92,27 @@ export default function AccountsPage() {
       />
 
       {/* Net Worth Banner */}
-      <Card className="bg-gradient-to-r from-slate-900 to-slate-800 text-white border-none shadow-md">
+      <Card className="bg-slate-900 text-white border border-slate-800 shadow-sm">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Total Net Balance
+              <span className="text-xs font-medium text-slate-400">
+                Total net balance
               </span>
-              <div className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">
+              <div className="text-3xl sm:text-4xl font-display font-semibold tracking-tight mt-1 tabular-nums">
                 {formatMoney(totalBalance)}
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Calculated dynamically from opening balances and transaction flows
+                Consolidated balance across accounts and transaction flows
               </p>
             </div>
 
             <div className="flex items-center gap-4 text-xs">
-              <div className="bg-slate-800/80 px-3.5 py-2.5 rounded-lg border border-slate-700">
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Active Accounts
+              <div className="bg-slate-800/80 px-3.5 py-2.5 rounded-lg border border-slate-700/80">
+                <span className="text-slate-400 block text-xs font-normal">
+                  Active accounts
                 </span>
-                <span className="text-base font-bold text-white">
+                <span className="text-base font-semibold text-white tabular-nums">
                   {accountSummaries.filter((a) => a.active).length} of {accountSummaries.length}
                 </span>
               </div>

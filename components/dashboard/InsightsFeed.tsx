@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import {
   TrendingDown,
   TrendingUp,
-  Sparkles,
+  CheckCircle2,
   AlertCircle,
   Lightbulb,
   X,
@@ -31,7 +31,7 @@ export function InsightsFeed() {
       case 'increase':
         return <TrendingUp className="w-4 h-4 text-rose-600 dark:text-rose-400" />;
       case 'milestone':
-        return <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
+        return <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       case 'warning':
         return <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />;
       default:

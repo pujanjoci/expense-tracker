@@ -83,7 +83,7 @@ export function CategoryDonutChart({ data }: CategoryDonutChartProps) {
     <Card className="flex flex-col">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3">
         <div>
-          <CardTitle>Spending by Category</CardTitle>
+          <CardTitle>Spending by category</CardTitle>
           <CardDescription>
             {timeframe === 'week' ? 'This week' : timeframe === 'month' ? 'This month' : 'All time'}
             {totalSpending > 0 && ` • ${formatMoney(totalSpending)}`}
@@ -186,10 +186,10 @@ export function CategoryDonutChart({ data }: CategoryDonutChartProps) {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   Total
                 </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display tabular-nums privacy-sensitive">
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 font-display tabular-nums privacy-sensitive">
                   {formatMoney(totalSpending)}
                 </span>
               </div>

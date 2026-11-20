@@ -129,8 +129,8 @@ export function AccountCard({
 
         {/* Current Balance Display */}
         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-            Current Balance
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            Current balance
           </span>
           <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-0.5">
             {formatMoney(account.currentBalance)}
